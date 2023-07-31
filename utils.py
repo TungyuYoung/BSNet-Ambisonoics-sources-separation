@@ -55,10 +55,10 @@ def zen_to_ele(zen_angle):
 """ Ambisonics """
 
 
-def eval_sh(max_order, dirs_sph):  # 求出最大阶次的球谐波信号
+def eval_sh(max_order, dirs_sph):
     # eval_sh ... evaluate spherical harmonics up to maximal order max_order
     # inputs:      max_order ... maximal SH order
-    #              dirs_sph ... DoA a (Q, 2) array with (azimuth, elevation) in rad # （方位角，仰角）
+    #              dirs_sph ... DoA a (Q, 2) array with (azimuth, elevation) in rad #
     #                           in case of one direction, also (2,) is possible
     # outputs:     Y ... (Q, (max_order + 1)^2) matrix of real spherical harmonics
 
