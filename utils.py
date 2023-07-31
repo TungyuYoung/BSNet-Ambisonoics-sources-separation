@@ -17,7 +17,7 @@ def sph2cart(azimuth, zenith):  # 球坐标转为笛卡尔坐标
     return cart
 
 
-def cart2sph(c):  # 笛卡尔坐标转为球坐标
+def cart2sph(c):
     azi = np.arctan2(c[1], c[0])
     zen = np.pi / 2 - np.arctan2(c[2], np.sqrt(c[0] ** 2 + c[1] ** 2))
     return np.array([azi, zen])
