@@ -179,7 +179,7 @@ if render_room:
 
     roomSim.alignDirectSoundToStart = True
 
-iMix = 8720  # when train, iMix = 4909; when test, iMix = 50; when valid, iMix = 0
+iMix = 0
 iMixWithSilentSources = 0
 
 if dataset == 'musdb':
