@@ -26,23 +26,23 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
         optimizer.zero_grad()
 
         output_signal = model(ambi_mixes, beamformer_audio)
-
+        # print(output_signal.shape) # torch.Size([batch_size, 308699])
+        # print(target_signals.shape) # torch.Size([batch_size, 1, 308699])
         loss = model.loss(output_signal, target_signals)
         interval_losses.append(loss.item())
 
         loss.backward()
 
-        torch.nn.utils.clip_grad_norm_(model.parameter(), 0.5)
+        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
 
         optimizer.step()
 
         if batch_idx % log_interval == 0:
-            print("Train Epoch: {} [{}/{} ({:.0f%})] \t Loss: {:.6f}".format(epoch, batch_idx * len(ambi_mixes),
-                                                                             len(train_loader.dataset),
-                                                                             100 * batch_idx / len(train_loader),
-                                                                             np.mean(interval_losses)))
+            print("Train Epoch: {} [{}/{} ({:.0f}%)] \t Loss: {:.6f}".format(
+                epoch, batch_idx * len(ambi_mixes), len(train_loader.dataset),
+                       100.0 * batch_idx / len(train_loader), np.mean(interval_losses)))
+
             losses.extend(interval_losses)
-            print(len(losses))
             interval_losses = []
 
     return np.mean(losses)
@@ -51,7 +51,7 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
 def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
     model.eval()
     test_loss = 0
-    output_folder = os.path.join(args.checkpoint_dir, args.name, 'samples')
+    output_folder = os.path.join(args.checkpoints_dir, args.name, 'samples')
 
     with torch.no_grad():
         for batch_idx, (ambi_mixes, target_signals, target_direction, beamformer_audio) in enumerate(test_loader):
@@ -63,9 +63,9 @@ def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
             output_signal = model(ambi_mixes, beamformer_audio)
             if batch_idx == 0 and epoch % 10 == 0:
                 for b in range(output_signal.shape[0]):
-                    output_signal_np = output_signal.signal.detach().cpu().numpy()
-                    target_signals_np = target_signals.detatch().cpu().numpy()
-                    ambi_mixes_original_np = ambi_mixes_original.detatch().cpu().numpy()
+                    output_signal_np = output_signal.detach().cpu().numpy()
+                    target_signals_np = target_signals.detach().cpu().numpy()
+                    ambi_mixes_original_np = ambi_mixes_original.detach().cpu().numpy()
 
                     output_signal_np = output_signal_np * np.iinfo(np.int16).max
                     target_signals_np = target_signals_np * np.iinfo(np.int16).max
@@ -98,6 +98,7 @@ def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
 
 
 def train(args):
+    torch.cuda.empty_cache()
     args.sr = 44100
     data_train = Dataset(args.train_dir, sr=args.sr, ambiorder=args.ambiorder, angular_window_deg=2.5,
                          ambimode=args.ambimode, dataset=args.dataset)
@@ -194,7 +195,8 @@ def train(args):
 
 
 if __name__ == "__main__":
-    print(torch.cuda.is_available())
+    if torch.cuda.is_available():
+        print("Using cuda0!")
     parser = argparse.ArgumentParser()
     # Data Params
     parser.add_argument('--decay_step', type=int, default=10, help='Learning rate decay steps.')
@@ -240,9 +242,9 @@ if __name__ == "__main__":
             super().__init__()
             self.train_dir = '/home/tungyu/Project/musdb18/mini_dataset/train/'
             self.test_dir = '/home/tungyu/Project/musdb18/mini_dataset/test/'
-            self.name = 'multimic_freqeuncy_minidataset'
+            self.name = 'multimic_minidataset_fre_mmse_n_sdr'
             self.checkpoints_dir = './checkpoints_minidataset'
-            self.batch_size = 4
+            self.batch_size = 8
             self.ambiorder = 4
             self.ambimode = 'mixed'
             self.dataset = 'musdb'
@@ -252,7 +254,7 @@ if __name__ == "__main__":
             self.decay_rate = 0.1
             self.sr = 44100
             self.decay = 0
-            self.n_workers = 4
+            self.n_workers = 1
             self.print_interval = 20
             self.start_epoch = None
             self.pretrain_path = None
@@ -260,8 +262,4 @@ if __name__ == "__main__":
 
 
     args = Args()
-    print(args.train_dir)
-    # print(args)
-    # print(args.train_dir)
     train(args)
-    # train(parser.parse_args())

@@ -199,6 +199,8 @@ def si_sdr(estimated_signal, reference_signals, scaling=True, eps=1e-8):
 
 
 def si_sdr_torch_edition(estimated_signal, reference_signals, scaling=True, eps=1e-8):
+    # print(estimated_signal)
+    # print(reference_signals)
     Rss = torch.sum(reference_signals * reference_signals, dim=-1, keepdim=True)
     this_s = reference_signals
 
@@ -211,10 +213,10 @@ def si_sdr_torch_edition(estimated_signal, reference_signals, scaling=True, eps=
     e_true = a * this_s
     e_res = estimated_signal - e_true
 
-    Sss = torch.sum(e_true ** 2, dim=-1) + eps
+    Sss = torch.sum(e_true ** 2, dim=-1)
     Snn = torch.sum(e_res ** 2, dim=-1) + eps
 
-    SDR = 0.5 * torch.log10(Sss / Snn + eps)
+    SDR = 0.5 * torch.log10((Sss / Snn) + eps)
 
     return SDR
 
