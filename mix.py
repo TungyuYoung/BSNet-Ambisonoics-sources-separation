@@ -45,7 +45,7 @@ def generateOneRandomSourcePosition(roomSize):
 
 
 def prepareMUSDB():
-    root = '/home/tungyu/Project/musdb18/'  # path to musdb18hq dataset
+    root = '../Project/musdb18/'  # path to musdb18hq dataset
 
     # separates training set into training and validation
     fraction_validate_tracks = 0.9  # 按 9:1 的比例划分 train set 和 validate set
