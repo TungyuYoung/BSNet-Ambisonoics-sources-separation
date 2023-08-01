@@ -109,8 +109,7 @@ def train(args):
     use_cuda = args.use_cuda and torch.cuda.is_available()
     device = torch.device('cuda' if use_cuda else 'cpu')
 
-    num_workers = 4
-
+    num_workers = min(multiprocessing.cpu_count(), args.n_workers)
     kwargs = {
         'num_workers': num_workers,
         'pin_memory': True
