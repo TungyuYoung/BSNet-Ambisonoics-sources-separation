@@ -240,8 +240,8 @@ if __name__ == "__main__":
     class Args():
         def __init__(self):
             super().__init__()
-            self.train_dir = '/home/tungyu/Project/musdb18/mini_dataset/train/'
-            self.test_dir = '/home/tungyu/Project/musdb18/mini_dataset/test/'
+            self.train_dir = '../musdb18/mini_dataset/train/'
+            self.test_dir = '../musdb18/mini_dataset/test/'
             self.name = 'multimic_minidataset_fre_mmse_n_sdr'
             self.checkpoints_dir = './checkpoints_minidataset'
             self.batch_size = 8

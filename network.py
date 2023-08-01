@@ -84,6 +84,7 @@ class TungYu(nn.Module):
         hop_length = 256
         window_function = torch.hann_window(window_length=window_length).to('cuda:0')
         mix = torch.cat((mix, beamformer_audio), dim=1)
+
         b_s, n_c, s_l = mix.shape
         mix_reshaped = mix.view(b_s * n_c, s_l)
 
@@ -108,7 +109,6 @@ class TungYu(nn.Module):
 
         mask = torch.sigmoid(self.mask_linear(x))
         mask = mask.permute(0, 2, 1)
-        print(mix_mag[:, 4])
         separated_spec = mix_mag[:, 4] * mask
 
         separated_audio = torch.istft(separated_spec, n_fft=n_fft, hop_length=hop_length, win_length=window_length,
