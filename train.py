@@ -83,9 +83,10 @@ def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
                     target_signals_np = target_signals_np * np.iinfo(np.int16).max
                     ambi_mixes_original_np = ambi_mixes_original_np * np.iinfo(np.int16).max
 
-                    seaborn.heatmap(mask_[0].detach().numpy())
+                    seaborn.heatmap(mask_[0].detach().cpu().numpy())
                     plt.savefig(os.path.join(output_folder, 'epoch_' + str(epoch) + '_batch_pos_' + str(b) +
                                              '_output_signal_heatmap.png'))
+                    plt.clf()
 
                     wavfile.write(os.path.join(output_folder, 'epoch_' + str(epoch) + '_batch_pos_' + str(b) +
                                                '_output_signal.wav'), args.sr,
@@ -257,7 +258,7 @@ if __name__ == "__main__":
             super().__init__()
             self.train_dir = '../musdb18/mini_dataset_ambi/train/'
             self.test_dir = '../musdb18/mini_dataset_ambi/test/'
-            self.name = 'multimic_minidataset_ambi_loss_fremse'  # target source ambi-data
+            self.name = 'multimic_minidataset_ambi_loss_fremse_nonchubc'  # target source ambi-data
             self.checkpoints_dir = './checkpoints_minidataset_fre'
             self.batch_size = 8
             self.ambiorder = 4

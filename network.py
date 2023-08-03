@@ -144,7 +144,7 @@ class TungYu(nn.Module):
             si_sdr_loss += si_sdr_i
 
         si_sdr_loss = si_sdr_loss / batch_size
-        mse_loss = frequency_mse(output_signals, gt_output_signals) / batch_size
+        mse_loss = frequency_mse(output_signals, gt_output_signals)
         # print(mse_loss)
         loss = si_sdr_loss + mse_loss
         return loss, mse_loss, si_sdr_loss_
