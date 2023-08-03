@@ -10,6 +10,8 @@ from pathlib import Path
 from dataset import Dataset
 from network import TungYu, load_pretrain
 from scipy.io import wavfile
+import seaborn
+from matplotlib import pyplot as plt
 
 
 def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
@@ -27,7 +29,7 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
 
         optimizer.zero_grad()
 
-        output_signal, mask_ = model(ambi_mixes, beamformer_audio)  # mask_ is the mask_
+        output_signal, mask_ = model(ambi_mixes, beamformer_audio)
         # print(output_signal.shape) # torch.Size([batch_size, 308699])
         # print(target_signals.shape) # torch.Size([batch_size, 1, 308699])
         loss, mse_loss, si_sdr_loss = model.loss(output_signal, target_signals)
@@ -68,6 +70,9 @@ def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
             beamformer_audio = beamformer_audio.to(device)
 
             output_signal, mask_ = model(ambi_mixes, beamformer_audio)
+
+            # plt.show()
+
             if batch_idx == 0 and epoch % 10 == 0:
                 for b in range(output_signal.shape[0]):
                     output_signal_np = output_signal.detach().cpu().numpy()
@@ -78,19 +83,22 @@ def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
                     target_signals_np = target_signals_np * np.iinfo(np.int16).max
                     ambi_mixes_original_np = ambi_mixes_original_np * np.iinfo(np.int16).max
 
-                    wavfile.write(os.path.join(output_folder,
-                                               'epoch_' + str(epoch) + '_batch_pos_' + str(b) + '_output_signal.wav'),
-                                  args.sr, output_signal_np[b, ...].T.astype(np.int16)
-                                  )
+                    seaborn.heatmap(mask_[0].detach().numpy())
+                    plt.savefig(os.path.join(output_folder, 'epoch_' + str(epoch) + '_batch_pos_' + str(b) +
+                                             '_output_signal_heatmap.png'))
+
+                    wavfile.write(os.path.join(output_folder, 'epoch_' + str(epoch) + '_batch_pos_' + str(b) +
+                                               '_output_signal.wav'), args.sr,
+                                  output_signal_np[b, ...].T.astype(np.int16))
                     wavfile.write(os.path.join(output_folder,
                                                'epoch_' + str(epoch) + '_batch_pos_' + str(
                                                    b) + '_label_source_signal.wav'),
-                                  args.sr, (0.2 * target_signals_np[b, ...]).T.astype(np.int16)
-                                  )
+                                  args.sr, (0.2 * target_signals_np[b, ...]).T.astype(np.int16))
+
                     wavfile.write(os.path.join(output_folder,
                                                'epoch_' + str(epoch) + '_batch_pos_' + str(b) + '_input_mixture.wav'),
-                                  args.sr, ambi_mixes_original_np[b, ...].T.astype(np.int16)
-                                  )
+                                  args.sr, ambi_mixes_original_np[b, ...].T.astype(np.int16))
+
 
             loss, mse_loss, si_sdr_losses = model.loss(output_signal, target_signals)
             test_loss += loss.item()
