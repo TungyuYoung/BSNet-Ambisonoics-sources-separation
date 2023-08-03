@@ -49,9 +49,6 @@ def zen_to_ele(zen_angle):
     return np.pi / 2 - zen_angle
 
 
-
-
-
 """ Ambisonics """
 
 
@@ -115,9 +112,14 @@ def beamformer_max_re(input_signal, dir_sph):  # max-re算法进行波束形成
 
     weights_per_sh_channel = expand_weights(getMaxReWeights(ambi_order))
 
-
     y = eval_sh(ambi_order, dir_sph)
+
+    # print("input_signal sh max: ", np.max(y))
+
     output_signal = np.dot(np.multiply(input_signal, weights_per_sh_channel), np.transpose(y))
+
+    # print("input_signal bf max: ", np.max(output_signal / 2 ** 15))
+
     return output_signal
 
 
@@ -216,9 +218,35 @@ def si_sdr_torch_edition(estimated_signal, reference_signals, scaling=True, eps=
     Sss = torch.sum(e_true ** 2, dim=-1)
     Snn = torch.sum(e_res ** 2, dim=-1) + eps
 
-    SDR = 0.5 * torch.log10((Sss / Snn) + eps)
+    SDR = torch.log10((Sss / Snn) + eps)
 
-    return SDR
+    return -SDR
+
+
+def negative_si_snr(estimated_signal, reference_signals, eps=1e-13):
+    def l2norm(mat, keep_dim=False):
+        return torch.norm(mat, dim=1, keep_dim=keep_dim)
+
+    t = torch.sum(estimated_signal * reference_signals, dim=-1, keepdim=True) * reference_signals / (
+            l2norm(reference_signals, keep_dim=True) ** 2 + eps)
+    return -torch.mean(torch.log10(eps + l2norm(t) / (l2norm(estimated_signal - t) + eps)))
+
+
+def frequency_mse(estimated_signal, reference_signals):
+    n_fft = 512
+    window_length = 512
+    hop_length = 256
+    window_function = torch.hann_window(window_length=window_length).to('cuda:0')
+    b_s, n_c, s_l = estimated_signal.shape
+    estimated_signal = estimated_signal.view(b_s * n_c, s_l)
+    reference_signals = reference_signals.view(b_s * n_c, s_l)
+    estimated_signal_mag = torch.stft(estimated_signal, n_fft, hop_length=hop_length, win_length=window_length,
+                                      window=window_function, center=True, return_complex=True)
+    reference_signals_mag = torch.stft(reference_signals, n_fft, hop_length=hop_length, win_length=window_length,
+                                       window=window_function, center=True, return_complex=True)
+    fre_mes_loss = torch.mean(torch.abs(estimated_signal_mag - reference_signals_mag) ** 2)
+    return fre_mes_loss
+
 
 """ Plotting """
 
@@ -246,9 +274,9 @@ def drawGrid():
         azi = np.ones(100) * aziAngle
         x, y = projectHammerAitof(azi, ele)
 
-        plt.text(x[50], y[50], str(int(np.rint(aziAngle * 180 / np.pi))), fontsize = 10, color = 'grey', alpha = 1)
+        plt.text(x[50], y[50], str(int(np.rint(aziAngle * 180 / np.pi))), fontsize=10, color='grey', alpha=1)
 
-        plt.plot(x, y, '--', color = 'grey', alpha = 0.7)
+        plt.plot(x, y, '--', color='grey', alpha=0.7)
 
     for eleAngle in eleGrid:
         azi = np.linspace(-np.pi, np.pi - 0.001, 100)
@@ -256,7 +284,7 @@ def drawGrid():
         x, y = projectHammerAitof(azi, ele)
 
         if eleAngle != 0:
-            plt.text(x[50], y[50], str(int(np.rint(eleAngle * 180 / np.pi))), fontsize = 10, color = 'grey', alpha = 1)
+            plt.text(x[50], y[50], str(int(np.rint(eleAngle * 180 / np.pi))), fontsize=10, color='grey', alpha=1)
 
-        plt.plot(x, y, '--', color = 'grey', alpha = 0.7)
+        plt.plot(x, y, '--', color='grey', alpha=0.7)
     plt.axis('off')

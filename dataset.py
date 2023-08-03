@@ -1,3 +1,6 @@
+"""
+new one
+"""
 import json
 import random
 import numpy.random as rnd
@@ -5,7 +8,8 @@ import torch
 import numpy as np
 import scipy.io.wavfile as wavfile
 import os
-from utils import great_circle_distance, sph2cart, cart2sph, beamformer_max_re, zen_to_ele, azi_to_0_2pi_range
+from utils import great_circle_distance, sph2cart, cart2sph, beamformer_max_re, zen_to_ele, azi_to_0_2pi_range, \
+    beamformer_max_di
 from pathlib import Path
 
 
@@ -29,12 +33,16 @@ class Dataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
 
         curr_dir = self.dirs[idx]
+        # print(curr_dir)
 
         # Get metadata
         with open(Path(curr_dir) / 'metadata.json') as json_file:
             metadata = json.load(json_file)
 
         target_direction, gt_source_angle = get_target_and_gt_direction(metadata, self.angular_window, self.dataset)
+        # target_direction read from metadata.json
+        # print("t_d: ", target_direction)
+        # print("gt: ", gt_source_angle)
 
         if self.dataset == 'musdb':
             target_source_data, mixed_data = self.get_mixture_and_gt_musdb(
@@ -45,24 +53,25 @@ class Dataset(torch.utils.data.Dataset):
                 metadata, curr_dir, target_direction, self.angular_window)
 
         # select a subset of ambi channels according to the selected order
+        # print("mixed data shpae: ", mixed_data.shape)
         mixed_data = mixed_data[:, 0:self.num_ambi_channels]
-        # print("mixed_data_at_first:", mixed_data.shape)
 
-        # max-re beamformer output at the ground truth source target angle
         azi_angle_beamformer = azi_to_0_2pi_range(gt_source_angle[0])
         ele_angle_beamformer = zen_to_ele(gt_source_angle[1])
         beamformer_audio = beamformer_max_re(mixed_data, np.array((azi_angle_beamformer, ele_angle_beamformer)))
+        # print("max_bf: ", np.max(beamformer_audio))
+        # rms = np.sqrt(np.mean(beamformer_audio ** 2))
+        # if rms != 0:
+        #     beamformer_audio = beamformer_audio * (0.1 / rms)  # desired rms is 0.1
 
-        rms = np.sqrt(np.mean(beamformer_audio ** 2))
-        if rms != 0:
-            beamformer_audio = beamformer_audio * (0.1 / rms)  # desired rms is 0.1
 
+        # print("max_bf_after_norm: ", np.max(beamformer_audio))
         beamformer_audio = torch.tensor(beamformer_audio.T).float()
 
         # GTs
-        target_source_data = np.stack(target_source_data, axis = 0)
-        target_source_data = np.sum(target_source_data, axis = 0)
-        target_source_data = torch.unsqueeze(torch.tensor(target_source_data[0, :]).float(), dim = 0)
+        target_source_data = np.stack(target_source_data, axis=0)
+        target_source_data = np.sum(target_source_data, axis=0)
+        target_source_data = torch.unsqueeze(torch.tensor(target_source_data[0, :]).float(), dim=0)
 
         target_direction[0] = (target_direction[0] + np.pi) / np.pi - 1
         target_direction[1] = 2 * target_direction[1] / np.pi - 1
@@ -85,42 +94,58 @@ class Dataset(torch.utils.data.Dataset):
 
         target_source_data = []
         for key in ["vocals", "bass", "drums"]:
-            gt_audio_files = sorted(
-                list(Path(curr_dir).rglob(key + ".wav")))
-            assert len(gt_audio_files) > 0, "No files found in {}".format(
-                curr_dir)
-
-            _, gt_waveform = wavfile.read(gt_audio_files[0])
-            gt_waveform = gt_waveform.astype(np.float)
-            is_all_zero = np.all((gt_waveform == 0))
-            if not is_all_zero:
-                rms = np.sqrt(np.mean(gt_waveform ** 2))
-                gt_waveform = gt_waveform * (0.1 / rms)  # desired rms is 0.1
-
-            gt_waveform = gt_waveform.T.copy()
-            gt_waveform = np.expand_dims(gt_waveform, axis = 0)
+            gt_audio_files = sorted(list(Path(curr_dir).rglob(key + "_ambi.wav")))
+            assert len(gt_audio_files) > 0, "No files found in {}".format(curr_dir)
 
             source_azi_angle = metadata[key]['panning_angles'][0]
             source_zen_angle = metadata[key]['panning_angles'][1]
+
+            source_azi_angle_beamformer = azi_to_0_2pi_range(source_azi_angle)
+            source_ele_angle_beamformer = zen_to_ele(source_zen_angle)
+
+            _, gt_waveform = wavfile.read(gt_audio_files[0])  # (308699, 25)
+            # print(gt_waveform)
+            gt_waveform = gt_waveform[:, 0:self.num_ambi_channels]
+
+            gt_waveform = beamformer_max_re(gt_waveform,
+                                             np.array((source_azi_angle_beamformer, source_ele_angle_beamformer)))
+
+            gt_waveform = gt_waveform.astype(np.float)
+            gt_waveform = gt_waveform.T
+
+            # print("lplplp", gt_waveform.shape)
+
+            is_all_zero = np.all((gt_waveform == 0))
+            # print("before norm: ", np.max(gt_waveform))
+            if not is_all_zero:
+                gt_waveform = gt_waveform / (2 ** 15)
+
+            # print(np.max(gt_waveform))
+            # print(gt_waveform.shape)
+
+            # gt_waveform = gt_waveform.T.copy()  # shape: 308699
+            # gt_waveform = np.expand_dims(gt_waveform, axis=0)  # shape: (1, 308699)
 
             # Source is inside our target region. Need to save for ground truth.
             if great_circle_distance(source_azi_angle, source_zen_angle, target_direction[0],
                                      target_direction[1]) < curr_window_size:
                 target_source_data.append(gt_waveform)
+                # [array([[.., .., ..]]), array([[.., .., ..]]), array([[.., .., ..]])]
 
             # Source is not within our region. Add silence
             else:
                 target_source_data.append(np.zeros((gt_waveform.shape[0], gt_waveform.shape[1])))
-
+                # print(len(target_source_data))
         # Load mix
         mix_path = os.path.join(curr_dir, "mix.wav")
         rate, mixture_waveform = wavfile.read(mix_path)
         mixture_waveform = mixture_waveform.astype(np.float)
         mix_is_all_zero = np.all((mixture_waveform[:, 0] == 0))
         if not mix_is_all_zero:
+            mixture_waveform = mixture_waveform / (2 ** 15)
             # Normalize mixture
-            mixture_waveform = mixture_waveform / np.amax(np.abs(mixture_waveform[:, 0])) / np.sqrt(
-                2 * self.ambiorder + 1)
+            # mixture_waveform = mixture_waveform / np.amax(np.abs(mixture_waveform[:, 0])) / np.sqrt(
+            #     2 * self.ambiorder + 1)
             # print(mixture_waveform)
         # for i in mixture_waveform.T:
         #     print(i)
@@ -147,7 +172,7 @@ class Dataset(torch.utils.data.Dataset):
                 gt_waveform = gt_waveform * (0.1 / rms)  # desired rms is 0.1
 
             gt_waveform = gt_waveform.T.copy()
-            gt_waveform = np.expand_dims(gt_waveform, axis = 0)
+            gt_waveform = np.expand_dims(gt_waveform, axis=0)
 
             source_azi_angle = metadata[str(num_source)]['panning_angles'][0]
             source_zen_angle = metadata[str(num_source)]['panning_angles'][1]

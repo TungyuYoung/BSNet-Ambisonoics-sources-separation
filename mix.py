@@ -45,7 +45,7 @@ def generateOneRandomSourcePosition(roomSize):
 
 
 def prepareMUSDB():
-    root = '../Project/musdb18/'  # path to musdb18hq dataset
+    root = '../musdb18/'  # path to musdb18hq dataset
 
     # separates training set into training and validation
     fraction_validate_tracks = 0.9  # 按 9:1 的比例划分 train set 和 validate set
@@ -57,7 +57,7 @@ def prepareMUSDB():
         path = os.path.join(base_path, 'train')
         num_tracks = len(mus)
         last_validate_track = int(num_tracks * fraction_validate_tracks)
-        print("lvt: ddd: ", last_validate_track)
+        # print("lvt: ddd: ", last_validate_track)
     elif subset == 'validate':
         mus = musdb.DB(root=root, is_wav=False, subsets="train")
         path = os.path.join(base_path, 'validate_dir')

@@ -3,8 +3,9 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from resnet import ResidualBlock
-from utils import si_sdr_torch_edition
+from utils import si_sdr_torch_edition, frequency_mse
 import torchaudio.transforms as T
+import numpy
 
 
 def load_pretrain(model, state_dict):
@@ -62,7 +63,7 @@ class TungYu(nn.Module):
 
         in_channels = n_audio_channels  # 5
 
-        self.conv1 = nn.Conv2d(in_channels, self.channels, kernel_size=context, padding=context // 2)  # 5, 32, 3, 8
+        self.conv1 = nn.Conv2d(in_channels, self.channels, kernel_size=context, padding=context // 2)
         self.maxpool1 = nn.MaxPool2d((2, 1))
         self.res_block1 = ResidualBlock(self.channels, 2 * self.channels)
         self.res_block2 = ResidualBlock(2 * self.channels, 4 * self.channels)
@@ -79,6 +80,8 @@ class TungYu(nn.Module):
         self.mask_linear = nn.Linear(channels, 257)
 
     def forward(self, mix, beamformer_audio):
+        # print(mix.shape)
+        # print(beamformer_audio.shape)
         n_fft = 512
         window_length = 512
         hop_length = 256
@@ -101,14 +104,18 @@ class TungYu(nn.Module):
         x = self.res_block1(x)
         x = self.maxpool1(x)
         x = self.res_block2(x)
+        # x = self.maxpool1(x)
+        # x = self.res_block3(x)
 
         x = x.permute(0, 3, 1, 2)  # shape: torch.Size([2, 512, 309942])
         x = x.view(x.size(0), x.size(1), -1)
+
         x = self.linear(x)
         x, _ = self.lstm(x)
 
         mask = torch.sigmoid(self.mask_linear(x))
         mask = mask.permute(0, 2, 1)
+
         separated_spec = mix_mag[:, 4] * mask
 
         separated_audio = torch.istft(separated_spec, n_fft=n_fft, hop_length=hop_length, win_length=window_length,
@@ -116,16 +123,28 @@ class TungYu(nn.Module):
         separated_audio = adjust_length(beamformer_audio, separated_audio)
 
         separated_audio = separated_audio.unsqueeze(1)
-        return separated_audio
+        return separated_audio, mask  # hai you yi ge mask
+
+    # def loss(self, output_signals, gt_output_signals):
+    #     return F.l1_loss(output_signals, gt_output_signals)
+
+    def L1_loss(self, output_signals, gt_output_signals):
+        return F.l1_loss(output_signals, gt_output_signals)
 
     def loss(self, output_signals, gt_output_signals):
+        si_sdr_loss_ = []
         si_sdr_loss = 0.0
         batch_size = output_signals.size(0)
         for i in range(batch_size):
             estimated_signal = output_signals[i, :, :]
             reference_signal = gt_output_signals[i, :, :]
-            si_sdr_loss -= si_sdr_torch_edition(estimated_signal, reference_signal)
+            si_sdr_i = si_sdr_torch_edition(estimated_signal, reference_signal)
+            # print(si_sdr_i)
+            si_sdr_loss_.append((-si_sdr_i).detach().cpu().numpy())
+            si_sdr_loss -= si_sdr_i
 
         si_sdr_loss = si_sdr_loss / batch_size
-        loss = F.mse_loss(output_signals, gt_output_signals) * 1.3 + si_sdr_loss
-        return loss
+        mse_loss = frequency_mse(output_signals, gt_output_signals) / batch_size
+        # print(mse_loss)
+        loss = si_sdr_loss + mse_loss
+        return loss, mse_loss, si_sdr_loss_

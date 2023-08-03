@@ -16,6 +16,8 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
     model.train()
     losses = []
     interval_losses = []
+    mse_losses = []
+    si_sdr_losses = []
 
     for batch_idx, (ambi_mixes, target_signals, target_direction, beamformer_audio) in enumerate(train_loader):
 
@@ -25,11 +27,13 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
 
         optimizer.zero_grad()
 
-        output_signal = model(ambi_mixes, beamformer_audio)
+        output_signal, mask_ = model(ambi_mixes, beamformer_audio)  # mask_ is the mask_
         # print(output_signal.shape) # torch.Size([batch_size, 308699])
         # print(target_signals.shape) # torch.Size([batch_size, 1, 308699])
-        loss = model.loss(output_signal, target_signals)
-        interval_losses.append(loss.item())
+        loss, mse_loss, si_sdr_loss = model.loss(output_signal, target_signals)
+        interval_losses.append(loss.item())  # batch_size * print_interval total loss
+        mse_losses.append(mse_loss.item())
+        si_sdr_losses.append(si_sdr_loss)
 
         loss.backward()
 
@@ -38,12 +42,15 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
         optimizer.step()
 
         if batch_idx % log_interval == 0:
-            print("Train Epoch: {} [{}/{} ({:.0f}%)] \t Loss: {:.6f}".format(
+            print("Train Epoch: {} [{}/{} ({:.0f}%)] \t LOSS: {:.6f} \t MSE LOSS: {:.6f} \t SI-SDR-LOSS: {:.6f}".format(
                 epoch, batch_idx * len(ambi_mixes), len(train_loader.dataset),
-                       100.0 * batch_idx / len(train_loader), np.mean(interval_losses)))
+                       100.0 * batch_idx / len(train_loader), np.mean(interval_losses), np.mean(mse_losses),
+                np.mean(si_sdr_losses)))
 
             losses.extend(interval_losses)
             interval_losses = []
+            mse_losses = []
+            si_sdr_losses = []
 
     return np.mean(losses)
 
@@ -60,7 +67,7 @@ def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
             target_signals = target_signals.to(device)
             beamformer_audio = beamformer_audio.to(device)
 
-            output_signal = model(ambi_mixes, beamformer_audio)
+            output_signal, mask_ = model(ambi_mixes, beamformer_audio)
             if batch_idx == 0 and epoch % 10 == 0:
                 for b in range(output_signal.shape[0]):
                     output_signal_np = output_signal.detach().cpu().numpy()
@@ -78,14 +85,14 @@ def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
                     wavfile.write(os.path.join(output_folder,
                                                'epoch_' + str(epoch) + '_batch_pos_' + str(
                                                    b) + '_label_source_signal.wav'),
-                                  args.sr, target_signals_np[b, ...].T.astype(np.int16)
+                                  args.sr, (0.2 * target_signals_np[b, ...]).T.astype(np.int16)
                                   )
                     wavfile.write(os.path.join(output_folder,
                                                'epoch_' + str(epoch) + '_batch_pos_' + str(b) + '_input_mixture.wav'),
                                   args.sr, ambi_mixes_original_np[b, ...].T.astype(np.int16)
                                   )
 
-            loss = model.loss(output_signal, target_signals)
+            loss, mse_loss, si_sdr_losses = model.loss(output_signal, target_signals)
             test_loss += loss.item()
 
             if batch_idx % log_interval == 0:
@@ -165,6 +172,7 @@ def train(args):
     try:
         for epoch in range(start_epoch, args.epochs + 1):
             train_loss = train_epoch(model, device, optimizer, train_loader, epoch, args.print_interval)
+            print("This epoch total loss: ", train_loss)
             torch.save(model.state_dict(), os.path.join(args.checkpoints_dir, args.name, "last.pt"))
             print("Done with training, start to testing!")
             test_loss = testt_epoch(model, device, test_loader, args, epoch, args.print_interval)
@@ -173,7 +181,7 @@ def train(args):
                 best_error = test_loss
                 torch.save(model.state_dict(), os.path.join(args.checkpoints_dir, args.name, "best.pt"))
 
-            scheduler.step(test_loss)
+            scheduler.step()
             train_losses.append((epoch, train_loss))
             test_losses.append((epoch, test_loss))
 
@@ -239,22 +247,22 @@ if __name__ == "__main__":
     class Args():
         def __init__(self):
             super().__init__()
-            self.train_dir = '../musdb18/mini_dataset/train/'
-            self.test_dir = '../musdb18/mini_dataset/test/'
-            self.name = 'multimic_minidataset_fre_mmse_n_sdr'
-            self.checkpoints_dir = './checkpoints_minidataset'
+            self.train_dir = '../musdb18/mini_dataset_ambi/train/'
+            self.test_dir = '../musdb18/mini_dataset_ambi/test/'
+            self.name = 'multimic_minidataset_ambi_loss_fremse'  # target source ambi-data
+            self.checkpoints_dir = './checkpoints_minidataset_fre'
             self.batch_size = 8
             self.ambiorder = 4
             self.ambimode = 'mixed'
             self.dataset = 'musdb'
             self.epochs = 350
-            self.lr = 1e-4
-            self.decay_step = 10
+            self.lr = 1e-3
+            self.decay_step = 3000
             self.decay_rate = 0.1
             self.sr = 44100
             self.decay = 0
             self.n_workers = 1
-            self.print_interval = 20
+            self.print_interval = 10
             self.start_epoch = None
             self.pretrain_path = None
             self.use_cuda = True
