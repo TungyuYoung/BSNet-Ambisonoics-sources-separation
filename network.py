@@ -140,8 +140,8 @@ class TungYu(nn.Module):
             reference_signal = gt_output_signals[i, :, :]
             si_sdr_i = si_sdr_torch_edition(estimated_signal, reference_signal)
             # print(si_sdr_i)
-            si_sdr_loss_.append((-si_sdr_i).detach().cpu().numpy())
-            si_sdr_loss -= si_sdr_i
+            si_sdr_loss_.append((si_sdr_i).detach().cpu().numpy())
+            si_sdr_loss += si_sdr_i
 
         si_sdr_loss = si_sdr_loss / batch_size
         mse_loss = frequency_mse(output_signals, gt_output_signals) / batch_size
