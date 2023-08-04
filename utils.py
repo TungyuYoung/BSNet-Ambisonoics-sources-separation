@@ -201,8 +201,6 @@ def si_sdr(estimated_signal, reference_signals, scaling=True, eps=1e-8):
 
 
 def si_sdr_torch_edition(estimated_signal, reference_signals, scaling=True, eps=1e-8):
-    # print(estimated_signal)
-    # print(reference_signals)
     Rss = torch.sum(reference_signals * reference_signals, dim=-1, keepdim=True)
     this_s = reference_signals
 
@@ -244,7 +242,8 @@ def frequency_mse(estimated_signal, reference_signals):
                                       window=window_function, center=True, return_complex=True)
     reference_signals_mag = torch.stft(reference_signals, n_fft, hop_length=hop_length, win_length=window_length,
                                        window=window_function, center=True, return_complex=True)
-    fre_mes_loss = torch.mean(torch.abs(estimated_signal_mag - reference_signals_mag) ** 2)
+
+    fre_mes_loss = torch.mean((torch.abs(estimated_signal_mag) - torch.abs(reference_signals_mag)) ** 2)
     return fre_mes_loss
 
 

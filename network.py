@@ -64,6 +64,7 @@ class TungYu(nn.Module):
         in_channels = n_audio_channels  # 5
 
         self.conv1 = nn.Conv2d(in_channels, self.channels, kernel_size=context, padding=context // 2)
+        self.bn1 = nn.BatchNorm2d(channels)
         self.maxpool1 = nn.MaxPool2d((2, 1))
         self.res_block1 = ResidualBlock(self.channels, 2 * self.channels)
         self.res_block2 = ResidualBlock(2 * self.channels, 4 * self.channels)
@@ -82,6 +83,8 @@ class TungYu(nn.Module):
     def forward(self, mix, beamformer_audio):
         # print(mix.shape)
         # print(beamformer_audio.shape)
+        mix = mix.to('cuda:0')
+        beamformer_audio = beamformer_audio.to('cuda:0')
         n_fft = 512
         window_length = 512
         hop_length = 256
@@ -99,6 +102,7 @@ class TungYu(nn.Module):
 
         x = mix_mag_real
         x = self.conv1(x)
+        x = self.bn1(x)  # batch normalization
         x = self.relu(x)
         x = self.maxpool1(x)
         x = self.res_block1(x)
@@ -119,7 +123,8 @@ class TungYu(nn.Module):
         separated_spec = mix_mag[:, 4] * mask
 
         separated_audio = torch.istft(separated_spec, n_fft=n_fft, hop_length=hop_length, win_length=window_length,
-                                      center=False)
+                                      center=True)
+
         separated_audio = adjust_length(beamformer_audio, separated_audio)
 
         separated_audio = separated_audio.unsqueeze(1)
@@ -138,6 +143,9 @@ class TungYu(nn.Module):
         for i in range(batch_size):
             estimated_signal = output_signals[i, :, :]
             reference_signal = gt_output_signals[i, :, :]
+
+            # estimated_signal = adjust_length(reference_signal, estimated_signal)
+
             si_sdr_i = si_sdr_torch_edition(estimated_signal, reference_signal)
             # print(si_sdr_i)
             si_sdr_loss_.append((si_sdr_i).detach().cpu().numpy())

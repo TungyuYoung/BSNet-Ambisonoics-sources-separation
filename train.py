@@ -25,7 +25,27 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
 
         ambi_mixes = ambi_mixes.to(device)
         target_signals = target_signals.to(device)
-        beamformer_audio = beamformer_audio.to(device)
+
+        # print(target_signals.shape)
+
+        sr = 44100
+
+        # ii, oo, pp = target_signals.shape
+
+        # target_signals_ = target_signals.view(ii * oo, pp).detach().cpu().numpy()
+        # # print(target_signals_)
+
+        # for i in range(ii):
+        #     # print(target_signals_[i])
+        #     wavfile.write('/home/tungyu/Project/target_signals_save/' + str(i) + '.wav', sr, target_signals_[i])
+        #     print("saved..")
+
+        # jj, kk, ll = beamformer_audio.shape
+        # beamformer_audio_ = beamformer_audio.view(jj*kk, ll).detach().cpu().numpy()
+        # for j in range(jj):
+        #     wavfile.write('/home/tungyu/Project/bf_saved_signals/bf_' + str(j) + '.wav', sr, beamformer_audio_[j])
+        #     print("saved!!")
+        # beamformer_audio = beamformer_audio.to(device)
 
         optimizer.zero_grad()
 
@@ -39,15 +59,19 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
 
         loss.backward()
 
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
+        # torch.nn.utils.clip_grad_norm_(model.parameters(), 0.5)
 
         optimizer.step()
+
 
         if batch_idx % log_interval == 0:
             print("Train Epoch: {} [{}/{} ({:.0f}%)] \t LOSS: {:.6f} \t MSE LOSS: {:.6f} \t SI-SDR-LOSS: {:.6f}".format(
                 epoch, batch_idx * len(ambi_mixes), len(train_loader.dataset),
                        100.0 * batch_idx / len(train_loader), np.mean(interval_losses), np.mean(mse_losses),
                 np.mean(si_sdr_losses)))
+
+            if batch_idx % (log_interval * 2) == 0:
+                print("GLOBAL LOSSES: ", losses)
 
             losses.extend(interval_losses)
             interval_losses = []
@@ -99,7 +123,6 @@ def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
                     wavfile.write(os.path.join(output_folder,
                                                'epoch_' + str(epoch) + '_batch_pos_' + str(b) + '_input_mixture.wav'),
                                   args.sr, ambi_mixes_original_np[b, ...].T.astype(np.int16))
-
 
             loss, mse_loss, si_sdr_losses = model.loss(output_signal, target_signals)
             test_loss += loss.item()
