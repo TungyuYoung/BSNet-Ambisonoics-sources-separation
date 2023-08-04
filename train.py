@@ -23,45 +23,15 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
     count = 0
 
     for batch_idx, (ambi_mixes, target_signals, target_direction, beamformer_audio) in enumerate(train_loader):
-
         ambi_mixes = ambi_mixes.to(device)
         target_signals = target_signals.to(device)
-
-        # print(target_signals.shape)
-
-        sr = 44100
-
-        # ii, oo, pp = target_signals.shape
-
-        # target_signals_ = target_signals.view(ii * oo, pp).detach().cpu().numpy()
-        # # print(target_signals_)
-
-        # for i in range(ii):
-        #     # print(target_signals_[i])
-        #     wavfile.write('/home/tungyu/Project/target_signals_save/' + str(i) + '.wav', sr, target_signals_[i])
-        #     print("saved..")
-
-        # jj, kk, ll = beamformer_audio.shape
-        # beamformer_audio_ = beamformer_audio.view(jj*kk, ll).detach().cpu().numpy()
-        # for j in range(jj):
-        #     wavfile.write('/home/tungyu/Project/bf_saved_signals/bf_' + str(j) + '.wav', sr, beamformer_audio_[j])
-        #     print("saved!!")
-        # beamformer_audio = beamformer_audio.to(device)
-
         optimizer.zero_grad()
-
         output_signal, mask_ = model(ambi_mixes, beamformer_audio)
-        # print(output_signal.shape) # torch.Size([batch_size, 308699])
-        # print(target_signals.shape) # torch.Size([batch_size, 1, 308699])
         loss, mse_loss, si_sdr_loss = model.loss(output_signal, target_signals)
-
         interval_losses += loss.item()
         mse_losses += mse_loss.item()
-        si_sdr_losses += np.mean(si_sdr_loss)
+        si_sdr_losses += np.sum(si_sdr_loss)
 
-        # interval_losses.append(loss.item())  # batch_size * print_interval total loss
-        # mse_losses.append(mse_loss.item())
-        # si_sdr_losses.append(si_sdr_loss)
         count = count + 1
 
         loss.backward()
@@ -70,16 +40,16 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
 
         optimizer.step()
 
-        if batch_idx % log_interval == 0:
+        if batch_idx % 10 == 0:
             print("Train Epoch: {} [{}/{} ({:.0f}%)] \t LOSS: {:.6f} \t MSE LOSS: {:.6f} \t SI-SDR-LOSS: {:.6f}".format(
                 epoch, batch_idx * len(ambi_mixes), len(train_loader.dataset),
                 100.0 * batch_idx / len(train_loader), interval_losses / count, mse_losses / count,
-                si_sdr_losses.item() / count))
+                si_sdr_losses / count))
 
             losses.append(interval_losses)
-            interval_losses = 0
-            mse_losses = 0
-            si_sdr_losses = 0
+            # interval_losses = 0
+            # mse_losses = 0
+            # si_sdr_losses = 0
 
         # if batch_idx % log_interval == 0:
         #     print("Train Epoch: {} [{}/{} ({:.0f}%)] \t LOSS: {:.6f} \t MSE LOSS: {:.6f} \t SI-SDR-LOSS: {:.6f}".format(
