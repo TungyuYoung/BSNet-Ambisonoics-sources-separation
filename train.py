@@ -17,9 +17,10 @@ from matplotlib import pyplot as plt
 def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
     model.train()
     losses = []
-    interval_losses = []
-    mse_losses = []
-    si_sdr_losses = []
+    interval_losses = 0
+    mse_losses = 0
+    si_sdr_losses = 0
+    count = 0
 
     for batch_idx, (ambi_mixes, target_signals, target_direction, beamformer_audio) in enumerate(train_loader):
 
@@ -53,9 +54,15 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
         # print(output_signal.shape) # torch.Size([batch_size, 308699])
         # print(target_signals.shape) # torch.Size([batch_size, 1, 308699])
         loss, mse_loss, si_sdr_loss = model.loss(output_signal, target_signals)
-        interval_losses.append(loss.item())  # batch_size * print_interval total loss
-        mse_losses.append(mse_loss.item())
-        si_sdr_losses.append(si_sdr_loss)
+
+        interval_losses += loss.item()
+        mse_losses += mse_loss.item()
+        si_sdr_losses += sum(si_sdr_loss)
+
+        # interval_losses.append(loss.item())  # batch_size * print_interval total loss
+        # mse_losses.append(mse_loss.item())
+        # si_sdr_losses.append(si_sdr_loss)
+        count = count + 1
 
         loss.backward()
 
@@ -63,20 +70,27 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
 
         optimizer.step()
 
-
         if batch_idx % log_interval == 0:
             print("Train Epoch: {} [{}/{} ({:.0f}%)] \t LOSS: {:.6f} \t MSE LOSS: {:.6f} \t SI-SDR-LOSS: {:.6f}".format(
                 epoch, batch_idx * len(ambi_mixes), len(train_loader.dataset),
-                       100.0 * batch_idx / len(train_loader), np.mean(interval_losses), np.mean(mse_losses),
-                np.mean(si_sdr_losses)))
+                100.0 * batch_idx / len(train_loader), interval_losses / count, mse_losses / count,
+                si_sdr_losses.item() / count))
 
-            if batch_idx % (log_interval * 2) == 0:
-                print("GLOBAL LOSSES: ", losses)
+            losses.append(interval_losses)
+            interval_losses = 0
+            mse_losses = 0
+            si_sdr_losses = 0
 
-            losses.extend(interval_losses)
-            interval_losses = []
-            mse_losses = []
-            si_sdr_losses = []
+        # if batch_idx % log_interval == 0:
+        #     print("Train Epoch: {} [{}/{} ({:.0f}%)] \t LOSS: {:.6f} \t MSE LOSS: {:.6f} \t SI-SDR-LOSS: {:.6f}".format(
+        #         epoch, batch_idx * len(ambi_mixes), len(train_loader.dataset),
+        #                100.0 * batch_idx / len(train_loader), np.mean(interval_losses), np.mean(mse_losses),
+        #         np.mean(si_sdr_losses)))
+    #
+    #     losses.extend(interval_losses)
+    #     interval_losses = []
+    #     mse_losses = []
+    #     si_sdr_losses = []
 
     return np.mean(losses)
 
@@ -118,7 +132,7 @@ def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
                     wavfile.write(os.path.join(output_folder,
                                                'epoch_' + str(epoch) + '_batch_pos_' + str(
                                                    b) + '_label_source_signal.wav'),
-                                  args.sr, (0.2 * target_signals_np[b, ...]).T.astype(np.int16))
+                                  args.sr, (0.45 * target_signals_np[b, ...]).T.astype(np.int16))
 
                     wavfile.write(os.path.join(output_folder,
                                                'epoch_' + str(epoch) + '_batch_pos_' + str(b) + '_input_mixture.wav'),
