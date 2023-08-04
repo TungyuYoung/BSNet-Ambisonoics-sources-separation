@@ -57,7 +57,7 @@ def train_epoch(model, device, optimizer, train_loader, epoch, log_interval=20):
 
         interval_losses += loss.item()
         mse_losses += mse_loss.item()
-        si_sdr_losses += sum(si_sdr_loss)
+        si_sdr_losses += np.mean(si_sdr_loss)
 
         # interval_losses.append(loss.item())  # batch_size * print_interval total loss
         # mse_losses.append(mse_loss.item())
@@ -296,7 +296,7 @@ if __name__ == "__main__":
             self.train_dir = '../musdb18/mini_dataset_ambi/train/'
             self.test_dir = '../musdb18/mini_dataset_ambi/test/'
             self.name = 'multimic_minidataset_ambi_loss_fremse_nonchubc'  # target source ambi-data
-            self.checkpoints_dir = './checkpoints_minidataset_fre'
+            self.checkpoints_dir = './checkpoints_minidataset_fre_bilstm'
             self.batch_size = 8
             self.ambiorder = 4
             self.ambimode = 'mixed'
