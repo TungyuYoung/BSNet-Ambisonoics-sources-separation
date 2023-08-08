@@ -28,13 +28,10 @@ def get_waveform_n_angle(curr_dir):
     ambiorder = 4
     with open(Path(curr_dir) / 'metadata.json') as json_file:
         metadata = json.load(json_file)
-    # print(metadata)
     source_positions = []
     source_audios = []
     for key in sorted(metadata.keys()):
-        # print(key)
         source_audio_files = sorted(list(Path(curr_dir).rglob(key + '.wav')))
-        # print(source_audio_files)
         assert (len(source_audio_files) > 0)
         sr, waveform = wavfile.read(source_audio_files[0])
         waveform = waveform.astype(np.float)
@@ -78,7 +75,7 @@ def main(evaluate_dir, model_checkpoint, result_dir):
     si_sdr_beamformer_max_re = {'vocals': [], 'drums': [], 'bass': []}
     si_sdr_beamformer_max_sdr = {'vocals': [], 'drums': [], 'bass': []}
     si_sdr_omnimix = {'vocals': [], 'drums': [],
-                      'bass': []}  # For baseline, we consider the omni mix as the separated source
+                      'bass': []}
 
     si_sdr_stats = {'median': {'nn': {'vocals': None, 'drums': None, 'bass': None, 'all': None},
                                'beamformer_max_di': {'vocals': None, 'drums': None, 'bass': None, 'all': None},
@@ -90,20 +87,16 @@ def main(evaluate_dir, model_checkpoint, result_dir):
         print(idx)
         curr_dir = all_dirs[idx]
         get_waveform_n_angle(curr_dir)
-        # print(curr_dir)  # /home/tungyu/Project/musdb18/different_angle/15/00000
         mixed_data, source_positions, source_audios, source_name = get_waveform_n_angle(curr_dir)
         mixed_data = mixed_data[:, 0:n_channels]
         for [azi_angle, zen_angle], target_waveform, key in zip(source_positions, source_audios, source_name):
             azi_angle_beamformer = azi_to_0_2pi_range(azi_angle)
             ele_angle_beamformer = zen_to_ele(zen_angle)
-            # print(azi_angle_beamformer, ele_angle_beamformer, key)
             audio_bf_max_re = beamformer_max_re(mixed_data, np.array((azi_angle_beamformer, ele_angle_beamformer)))
-            # print(audio_bf_max_re.shape)
             wavfile.write(str(curr_dir) + '/' + str(key) + '_bf_max_re.wav', 44100, audio_bf_max_re)
 
             # nn output here!
-            # audio_bf_max_re = audio_bf_max_re / (2 ** 15)
-            # print(audio_bf_max_re)
+
             nn_mixed_data = mixed_data[:, 0:4]
             nn_mixed_data = torch.tensor(nn_mixed_data.T)
             nn_bf_data = torch.tensor(audio_bf_max_re)
@@ -154,6 +147,6 @@ def main(evaluate_dir, model_checkpoint, result_dir):
 
 
 if __name__ == '__main__':
-    main(evaluate_dir='/home/tungyu/Project/musdb18/different_angle/90',
+    main(evaluate_dir='/home/tungyu/Project/musdb18/different_angle/15',
          model_checkpoint='/home/tungyu/Project/STFTNet/best.pt',
-         result_dir='/home/tungyu/Project/musdb18/different_angle/90')
+         result_dir='/home/tungyu/Project/musdb18/different_angle/15')

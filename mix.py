@@ -9,9 +9,6 @@ clean source original data. However, the signal has been processed by srir-simul
 the data.
 ------------------------------------------------
 """
-
-
-
 import numpy as np
 import scipy as sci
 import numpy.random as rnd
@@ -30,11 +27,8 @@ from utility.Coordinates import *
 from utility.Coordinates import Coordinates
 
 
-
 def generateOneRandomSourcePosition(roomSize):
-    """
-    根据默认房间尺寸 [3, 4, 3]，随机建立不同位置的声源
-    """
+
     position = roomSize.cart * (np.random.rand(3) * 2 - 1)
 
     # no sources on the floor or under the ceiling
@@ -48,7 +42,7 @@ def prepareMUSDB():
     root = '../musdb18/'  # path to musdb18hq dataset
 
     # separates training set into training and validation
-    fraction_validate_tracks = 0.9  # 按 9:1 的比例划分 train set 和 validate set
+    fraction_validate_tracks = 0.9
 
     last_validate_track = None
 
@@ -59,7 +53,7 @@ def prepareMUSDB():
         last_validate_track = int(num_tracks * fraction_validate_tracks)
         # print("lvt: ddd: ", last_validate_track)
     elif subset == 'validate':
-        mus = musdb.DB(root=root, is_wav=False, subsets="train")
+        mus = musdb.DB(root=root, is_wav=False, subsets="validate")
         path = os.path.join(base_path, 'validate_dir')
         num_tracks = len(mus)
         last_validate_track = int(num_tracks * fraction_validate_tracks)
@@ -89,8 +83,8 @@ def prepareFuss():
 
 # Set some global parameters
 # Ambisoncs order
-max_order = 4  # 4阶球谐函数
-num_sh_channels = (max_order + 1) ** 2  # SH的采样通道数
+max_order = 4
+num_sh_channels = (max_order + 1) ** 2
 
 # Length of the samples
 length_s = 6
@@ -118,7 +112,7 @@ parser.add_argument("--level_threshold_db", help="level threshold db for a mix n
 parser.add_argument("--room_size_range", help="range of variation from the default room size in m", type=list,
                     default=[0, 0, 0], nargs='+')
 parser.add_argument("--rt_range", help="range of variation from the default reverberation time", type=float,
-                    default=0)  # 混响时间
+                    default=0)
 
 # Parse input parameters
 args = parser.parse_args()
@@ -127,7 +121,7 @@ subset = args.subset
 num_mixes = args.num_mixes
 num_mixes_with_silent_sources = args.num_mixes_with_silent_sources
 minimal_angular_dist_deg = args.minimal_angular_dist
-maximal_angular_dist_deg = args.maximal_angular_dist  # 默认为 180°
+maximal_angular_dist_deg = args.maximal_angular_dist
 base_path = args.base_path
 batch_index = args.batch_index
 
@@ -171,7 +165,7 @@ if render_room:
     roomSim.maxIsOrder = 6
 
     # prepare general room simulation
-    roomSim.prepareImageSource()  # 镜像模型
+    roomSim.prepareImageSource()
     roomSim.prepareWallFilter()
     roomSim.plotWallFilters()
 
@@ -184,14 +178,12 @@ iMixWithSilentSources = 0
 
 if dataset == 'musdb':
     num_tracks, last_test_track, path, mus = prepareMUSDB()
-    # num_tracks = 100
-    # last_test_track = 90
-    # print("notice!")
+
     print(num_tracks, last_test_track, path, mus)
 
     ir_length_samp = ir_length_s * sampling_rate
 
-    azi, zen, ele = np.zeros(3), np.zeros(3), np.zeros(3)  # azi: 方位角，zen: 俯仰角，ele: pi / 2 - zen
+    azi, zen, ele = np.zeros(3), np.zeros(3), np.zeros(3)
 
     while iMix < num_mixes:
 
@@ -210,12 +202,12 @@ if dataset == 'musdb':
             iTrack_drums = iTrack
             iTrack_bass = iTrack
 
-        # get the tracks 随机从数据集的 'vocal'、‘drum’、'bass'轨道提取音轨
+
         x_vocals = mus[iTrack_vocal].sources['vocals'].audio
         x_drums = mus[iTrack_drums].sources['drums'].audio
         x_bass = mus[iTrack_bass].sources['bass'].audio
 
-        # select random starting point 随机选取片段
+
         offset_vocals = np.random.randint(0, x_vocals.shape[0] - num_samples)
         offset_drums = np.random.randint(0, x_drums.shape[0] - num_samples)
         offset_bass = np.random.randint(0, x_bass.shape[0] - num_samples)
@@ -225,17 +217,17 @@ if dataset == 'musdb':
             offset_drums = offset_vocals
             offset_bass = offset_vocals
 
-        # make mono version 生成单通道的数据
+        # make mono version
         x_vocals_mono = np.mean(x_vocals[offset_vocals:offset_vocals + num_samples, :], axis=1)
         x_drums_mono = np.mean(x_drums[offset_drums:offset_drums + num_samples, :], axis=1)
         x_bass_mono = np.mean(x_bass[offset_bass:offset_bass + num_samples, :], axis=1)
 
-        # compute levels 计算音频信号的分贝级别
+        # compute levels
         vocal_level_db = 20 * np.log10(np.sqrt(np.sum(x_vocals_mono ** 2) / num_samples))
         drums_level_db = 20 * np.log10(np.sqrt(np.sum(x_drums_mono ** 2) / num_samples))
         bass_level_db = 20 * np.log10(np.sqrt(np.sum(x_bass_mono ** 2) / num_samples))
 
-        # only proceed with this snippet, if the levels are above a certain threshold 即高于-60dB
+        # only proceed with this snippet, if the levels are above a certain threshold
         if (((vocal_level_db > level_threshold_db) & (drums_level_db > level_threshold_db) & (
                 bass_level_db > level_threshold_db)) or subset == 'test'):
 
@@ -252,7 +244,7 @@ if dataset == 'musdb':
                 iMixWithSilentSources = iMixWithSilentSources + 1
 
             if render_room:
-                # modify room size and reverberation time on each iteration 每次迭代时修改房间大小和混响时间
+                # modify room size and reverberation time on each iteration
                 room_size = Coordinates(default_room_size.cart + room_size_range * (np.random.rand(3) - 0.5) * 2)
                 roomSim.roomSize = room_size
                 source_position_range = Coordinates(room_size.cart / 2.0)
@@ -265,10 +257,6 @@ if dataset == 'musdb':
             p1 = generateOneRandomSourcePosition(source_position_range)
             p2 = copy.deepcopy(p1)
             p3 = copy.deepcopy(p1)
-
-            ###
-            # 根据随机创建的p1，再随即创建p2和p3，其中这三者之间的夹角不得小于5度
-            ###
 
             # Try placing another source, at least minimal_angular_dist_rad away from the first
             while (p1.greatCircleDistanceTo(p2) < minimal_angular_dist_rad or p1.greatCircleDistanceTo(
@@ -293,7 +281,7 @@ if dataset == 'musdb':
                 # print("shape of x_vocals_ambi", x_vocals_ambi.shape)
                 for iShChannel in range(num_sh_channels):
                     x_vocals_ambi[:, iShChannel] = sci.signal.convolve(x_vocals_mono,
-                                                                       srir1[:, iShChannel])  # 卷积, 在计算rir的时候完成了球谐波的计算
+                                                                       srir1[:, iShChannel])
                 # print("x_vocals_ambi shape after convolve", x_vocals_ambi.shape)
 
                 ## Second Source
@@ -345,7 +333,6 @@ if dataset == 'musdb':
             x_bass_only_ambi_scaled = x_bass_only_ambi * np.iinfo(np.int16).max
             x_drums_only_ambi_scaled = x_drums_only_ambi * np.iinfo(np.int16).max
 
-
             # create new folder with sample iTrack
             output_prefix_dir = os.path.join(path, '{:05d}'.format(iMix + batch_index * num_mixes))
             Path(output_prefix_dir).mkdir(parents=True, exist_ok=True)
@@ -365,7 +352,6 @@ if dataset == 'musdb':
 
             output_path_bass_ambi = os.path.join(output_prefix_dir, 'bass_ambi.wav')
             scipy.io.wavfile.write(output_path_bass_ambi, sampling_rate, x_bass_only_ambi_scaled.astype(np.int16))
-
 
             # dry mono files
             output_path_vocals = os.path.join(output_prefix_dir, 'vocals.wav')

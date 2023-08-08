@@ -1,12 +1,8 @@
-import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from resnet import ResidualBlock
 from utils import si_sdr_torch_edition, frequency_mse
-import torchaudio.transforms as T
-import numpy
-
 
 def load_pretrain(model, state_dict):
     for key in state_dict.keys():
@@ -32,8 +28,6 @@ def adjust_length(beamformer_sigal, separated_signal):
 
 class TungYu(nn.Module):
     def __init__(self,
-                 n_audio_channels: int = 5,
-                 ambimode: str = 'mixed',
                  conditioning_size: int = 2,
                  padding: int = 8,
                  context: int = 3,
@@ -41,13 +35,11 @@ class TungYu(nn.Module):
                  channels: int = 32,  # original paper is 64
                  growth: float = 2.0,
                  lstm_layers: int = 1,
-                 rescale: float = 0.1,
                  stft_window_size: int = 512,
                  stft_hop_length: int = 256,
                  activation: str = 'relu'
                  ):
         super(TungYu, self).__init__()
-        self.n_audio_channels = n_audio_channels
         self.conditioning_size = conditioning_size
         self.padding = padding
         self.context = context
@@ -55,13 +47,11 @@ class TungYu(nn.Module):
         self.channels = 32  # 32
         self.growth = growth
         self.lstm_layers = lstm_layers
-        self.rescale = rescale
-        self.ambimode = ambimode
         self.stft_window_size = stft_window_size
         self.stft_hop_length = stft_hop_length
         self.activation = activation
 
-        in_channels = n_audio_channels  # 5
+        in_channels = 5
 
         self.conv1 = nn.Conv2d(in_channels, self.channels, kernel_size=context, padding=context // 2)
         self.bn1 = nn.BatchNorm2d(channels)
@@ -73,7 +63,7 @@ class TungYu(nn.Module):
 
         channels = 4 * channels
 
-        self.linear = nn.Linear(channels * 64, 128)
+        self.linear = nn.Linear(channels * 64, 128)  # original: nn.Linear(channels * 64, 128)
 
         self.lstm = nn.LSTM(bidirectional=False, num_layers=lstm_layers, hidden_size=channels,
                             input_size=channels)
@@ -81,8 +71,6 @@ class TungYu(nn.Module):
         self.mask_linear = nn.Linear(channels, 257)
 
     def forward(self, mix, beamformer_audio):
-        # print(mix.shape)
-        # print(beamformer_audio.shape)
         mix = mix.to('cuda:0')
         beamformer_audio = beamformer_audio.to('cuda:0')
         n_fft = 512
@@ -108,8 +96,6 @@ class TungYu(nn.Module):
         x = self.res_block1(x)
         x = self.maxpool1(x)
         x = self.res_block2(x)
-        # x = self.maxpool1(x)
-        # x = self.res_block3(x)
 
         x = x.permute(0, 3, 1, 2)  # shape: torch.Size([2, 512, 309942])
         x = x.view(x.size(0), x.size(1), -1)
@@ -128,10 +114,7 @@ class TungYu(nn.Module):
         separated_audio = adjust_length(beamformer_audio, separated_audio)
 
         separated_audio = separated_audio.unsqueeze(1)
-        return separated_audio, mask  # hai you yi ge mask
-
-    # def loss(self, output_signals, gt_output_signals):
-    #     return F.l1_loss(output_signals, gt_output_signals)
+        return separated_audio, mask
 
     def L1_loss(self, output_signals, gt_output_signals):
         return F.l1_loss(output_signals, gt_output_signals)
@@ -143,16 +126,10 @@ class TungYu(nn.Module):
         for i in range(batch_size):
             estimated_signal = output_signals[i, :, :]
             reference_signal = gt_output_signals[i, :, :]
-
-            # estimated_signal = adjust_length(reference_signal, estimated_signal)
-
             si_sdr_i = si_sdr_torch_edition(estimated_signal, reference_signal)
-            # print(si_sdr_i)
             si_sdr_loss_.append((si_sdr_i).detach().cpu().numpy())
             si_sdr_loss += si_sdr_i
-
         si_sdr_loss = si_sdr_loss / batch_size
         mse_loss = frequency_mse(output_signals, gt_output_signals)
-        # print(mse_loss)
         loss = si_sdr_loss + mse_loss
         return loss, mse_loss, si_sdr_loss_
