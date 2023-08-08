@@ -48,7 +48,7 @@ def train_epoch(model, device, optimizer, train_loader, epoch):
     return np.mean(losses)
 
 
-def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
+def testt_epoch(model, device, test_loader, args, epoch):
     model.eval()
     test_loss = 0
     output_folder = os.path.join(args.checkpoints_dir, args.name, 'samples')
@@ -87,7 +87,7 @@ def testt_epoch(model, device, test_loader, args, epoch, log_interval=20):
             loss, mse_loss, si_sdr_losses = model.loss(output_signal, target_signals)
             test_loss += loss.item()
 
-            if batch_idx % log_interval == 0:
+            if batch_idx % 20 == 0:
                 print("Test Loss: {}".format(loss))
 
         time.sleep(5)
@@ -165,11 +165,11 @@ def train(args):
 
     try:
         for epoch in range(start_epoch, args.epochs + 1):
-            train_loss = train_epoch(model, device, optimizer, train_loader, epoch, args.print_interval)
+            train_loss = train_epoch(model, device, optimizer, train_loader, epoch)
             print("This epoch total loss: ", train_loss)
             torch.save(model.state_dict(), os.path.join(args.checkpoints_dir, args.name, "last.pt"))
             print("Done with training, start to testing!")
-            test_loss = testt_epoch(model, device, test_loader, args, epoch, args.print_interval)
+            test_loss = testt_epoch(model, device, test_loader, args, epoch)
 
             if test_loss < best_error:
                 best_error = test_loss
