@@ -7,7 +7,7 @@ import scipy.io.wavfile as wavfile
 import statistics as stat
 from utils import si_sdr, beamformer_max_di, \
     beamformer_max_re, beamformer_max_sdr, zen_to_ele, azi_to_0_2pi_range, si_sdr_torch_edition
-from network import TungYu
+from network import BSNet
 from pathlib import Path
 
 
@@ -63,7 +63,7 @@ def main(evaluate_dir, model_checkpoint, result_dir):
     print('Start evaluating!')
 
     n_channels = (ambiorder + 1) ** 2
-    model = TungYu()
+    model = BSNet()
     model.load_state_dict(torch.load(model_checkpoint), strict=True)
     model.train = False
     model = model.to(device)

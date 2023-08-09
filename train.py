@@ -7,7 +7,7 @@ import torch
 import torch.optim as optim
 from pathlib import Path
 from dataset import Dataset
-from network import TungYu, load_pretrain
+from network import BSNet, load_pretrain
 from scipy.io import wavfile
 import time
 
@@ -122,9 +122,9 @@ def train(args):
     print("SETTING UP MODEL")
 
     if args.ambimode == 'implicit':
-        model = TungYu()
+        model = BSNet()
     elif args.ambimode == 'mixed':
-        model = TungYu()
+        model = BSNet()
 
     model.to(device)
 
