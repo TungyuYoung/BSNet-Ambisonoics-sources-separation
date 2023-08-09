@@ -94,7 +94,7 @@ dataset = args.dataset
 max_order = 4
 num_sh_channels = (max_order + 1) ** 2
 length_s = 6
-ir_lengths = 1
+ir_length_s = 1
 sampling_rate = 44100
 num_samples = length_s * sampling_rate
 
@@ -106,5 +106,34 @@ print(
     f'Starting dataset generation {dataset}, subset = {subset} \n number of mixes on this node = {num_mixes} '
     f'\n mixes with silent sources = {num_mixes_with_silent_sources} \n sample length = {num_samples} '
     f'\n result path = {base_path} \n room rendering {render_room}')
+
+if render_room:
+    roomSim = Roomsimulator()
+
+    # Default Room Size
+    default_room_size = Coordinates([3, 4, 3])
+
+    # Default Reverberation time for [  125.   250.   500.  1000.  2000.  4000.  8000. 16000.] Hz
+    default_rt = np.array([0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3, 0.3])
+
+    roomSim.fs = sampling_rate
+    roomSim.maxShOrder = max_order
+    # set some parameters
+    roomSim.maxIsOrder = 6
+
+    # prepare general room simulation
+    roomSim.prepareImageSource()
+    roomSim.prepareWallFilter()
+    roomSim.plotWallFilters()
+
+    roomSim.irLength_s = ir_length_s
+
+    roomSim.alignDirectSoundToStart = True
+
+iMix = 0
+iMixWithSilentSources = 0
+
+
+read_path, write_path = prepareAISHELL3()
 
 
