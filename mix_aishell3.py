@@ -96,4 +96,15 @@ num_sh_channels = (max_order + 1) ** 2
 length_s = 6
 ir_lengths = 1
 sampling_rate = 44100
-samples = length_s * sampling_rate
+num_samples = length_s * sampling_rate
+
+minimal_angular_dist_rad = float(minimal_angular_dist_deg) / 180 * np.pi
+maximal_angular_dist_rad = float(maximal_angular_dist_deg) / 180 * np.pi
+
+
+print(
+    f'Starting dataset generation {dataset}, subset = {subset} \n number of mixes on this node = {num_mixes} '
+    f'\n mixes with silent sources = {num_mixes_with_silent_sources} \n sample length = {num_samples} '
+    f'\n result path = {base_path} \n room rendering {render_room}')
+
+
