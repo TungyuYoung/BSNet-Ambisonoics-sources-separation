@@ -26,7 +26,7 @@ def adjust_length(beamformer_sigal, separated_signal):
     return separated_signal
 
 
-class TungYu(nn.Module):
+class BSNet(nn.Module):
     def __init__(self,
                  conditioning_size: int = 2,
                  padding: int = 8,
@@ -39,7 +39,7 @@ class TungYu(nn.Module):
                  stft_hop_length: int = 256,
                  activation: str = 'relu'
                  ):
-        super(TungYu, self).__init__()
+        super(BSNet, self).__init__()
         self.conditioning_size = conditioning_size
         self.padding = padding
         self.context = context
