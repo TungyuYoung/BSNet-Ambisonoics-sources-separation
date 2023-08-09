@@ -1,2 +1,2 @@
 from evaluate import forward_pass
-from network import TungYu
+from network import BSNet
