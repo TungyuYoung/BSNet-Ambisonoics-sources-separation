@@ -4,6 +4,8 @@ Author TungYu Dominick Yeung
 
 For Aishell3 dataset ambisonics generation
 ------------------------------------------------
+
+python mix_aishell3.py train 15000 0 5 /home/tungyu/Project/datasets/aishell3/BS_dataset --dataset aishell3 --render_room --room_size_range 2 2 1 --rt_range 0.2
 """
 
 import numpy as np
@@ -36,14 +38,14 @@ def prepareAISHELL3():
     root = '../datasets/aishell3/'  # path to FUSS ssdata
 
     if subset == 'train':
-        read_path = os.path.join(root, 'train')
-        write_path = os.path.join(base_path, 'train_dir')
+        read_path = os.path.join(root, 'train/wav')
+        write_path = os.path.join(base_path, 'train')
     elif subset == 'validate':
-        read_path = os.path.join(root, 'validation')
-        write_path = os.path.join(base_path, 'validate_dir')
+        read_path = os.path.join(root, 'validation/wav')
+        write_path = os.path.join(base_path, 'validate')
     elif subset == 'test':
-        read_path = os.path.join(root, 'eval')
-        write_path = os.path.join(base_path, 'test_dir')
+        read_path = os.path.join(root, 'eval/wav')
+        write_path = os.path.join(base_path, 'test')
 
     return read_path, write_path
 
@@ -90,21 +92,25 @@ level_threshold_db = args.level_threshold_db
 
 dataset = args.dataset
 
-
 max_order = 4
 num_sh_channels = (max_order + 1) ** 2
 length_s = 6
 ir_length_s = 1
-sampling_rate = 44100
-num_samples = length_s * sampling_rate
+
+seed_value = 13
+rnd.seed(seed_value)
+
+
+if dataset == 'aishell3':
+    sampling_rate = 44100
+    num_samples = length_s * sampling_rate
 
 minimal_angular_dist_rad = float(minimal_angular_dist_deg) / 180 * np.pi
 maximal_angular_dist_rad = float(maximal_angular_dist_deg) / 180 * np.pi
 
-
 print(
     f'Starting dataset generation {dataset}, subset = {subset} \n number of mixes on this node = {num_mixes} '
-    f'\n mixes with silent sources = {num_mixes_with_silent_sources} \n sample length = {num_samples} '
+    f'\n mixes with silent sources = {num_mixes_with_silent_sources} \n sample length = {6 * 44100} '
     f'\n result path = {base_path} \n room rendering {render_room}')
 
 if render_room:
@@ -133,7 +139,21 @@ if render_room:
 iMix = 0
 iMixWithSilentSources = 0
 
-
 read_path, write_path = prepareAISHELL3()
+# print(read_path, write_path)
 
-print("dd")
+# prepare file_address_list, and then select 3 audios randomly from it to generate dataset
+file_address_list = []
+for root, subdirectories, files in os.walk(read_path):
+    aux_dir = {}
+    for subdirectory in subdirectories:
+        # print(os.path.join(root, subdirectory))
+        curr_path = os.path.join(root, subdirectory)
+        # print(curr_path)
+        for filename in os.listdir(curr_path):
+            file_address = os.path.join(curr_path, filename)
+            file_address_list.append(file_address)
+
+
+rnd.shuffle(file_address_list)  # shuffle the list
+
