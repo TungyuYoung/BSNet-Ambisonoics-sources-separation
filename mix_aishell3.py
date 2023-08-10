@@ -37,16 +37,15 @@ def generateOneRandomSourcePosition(roomSize):
 def prepareAISHELL3():
     root = '../datasets/aishell3/'  # path to FUSS ssdata
 
-    if subset == 'train':
+    if subset == 'train':  # 19831
         read_path = os.path.join(root, 'train/wav')
         write_path = os.path.join(base_path, 'train')
-    elif subset == 'validate':
+    elif subset == 'validate':  # 1257
         read_path = os.path.join(root, 'validation/wav')
         write_path = os.path.join(base_path, 'validate')
-    elif subset == 'test':
+    elif subset == 'test':  # 8285
         read_path = os.path.join(root, 'eval/wav')
         write_path = os.path.join(base_path, 'test')
-
     return read_path, write_path
 
 
@@ -139,7 +138,6 @@ iMix = 0
 iMixWithSilentSources = 0
 
 read_path, write_path = prepareAISHELL3()
-# print(read_path, write_path)
 
 # prepare file_address_list, and then select 3 audios randomly from it to generate dataset
 file_address_list = []
@@ -162,19 +160,39 @@ for i in range(num_group):
     speaker_2 = file_address_list[i * 3 + 1]
     speaker_3 = file_address_list[i * 3 + 2]
 
+    speaker_1_track = speaker_1.split("/")[-1].split(".")[0]
+    speaker_2_track = speaker_2.split("/")[-1].split(".")[0]
+    speaker_3_track = speaker_3.split("/")[-1].split(".")[0]
+
+    speaker_tracks = [speaker_1_track, speaker_2_track, speaker_3_track]
+
+    speaker_data = {
+        speaker_1_track: [],
+        speaker_2_track: [],
+        speaker_3_track: []
+    }
+
     _, speaker_1_data = wavfile.read(speaker_1)
+    speaker_data[speaker_1_track] = speaker_1_data
     _, speaker_2_data = wavfile.read(speaker_2)
+    speaker_data[speaker_2_track] = speaker_2_data
     _, speaker_3_data = wavfile.read(speaker_3)
+    speaker_data[speaker_3_track] = speaker_3_data
 
-    speakers = [speaker_1_data.tolist(), speaker_2_data.tolist(), speaker_3_data.tolist()]
+    combined = [(track, speaker_data[track]) for track in speaker_tracks]
 
-    speakers = sorted(speakers, key=len)
+    sorted_combined = sorted(combined, key=lambda x: len(x[1]))
+
+    speaker_tracks = [item[0] for item in sorted_combined]
+
+    speaker_data_group = []
+
+    for track in speaker_tracks:
+        ddd = speaker_data[track]
+        speaker_data_group.append(ddd)
+
 
     hope_data_length = length_s * sampling_rate
-
-    speaker_1_length = len(speaker_1_data)
-    speaker_2_length = len(speaker_2_data)
-    speaker_3_length = len(speaker_3_data)
 
     target_1_hope = np.zeros(hope_data_length)
     target_2_hope = np.zeros(hope_data_length)
@@ -184,30 +202,30 @@ for i in range(num_group):
     target_2_data = None
     target_3_data = None
 
-    if len(speakers[2]) < hope_data_length:
-        sp1_start = rnd.randint(0, hope_data_length - len(speakers[2]))
-        target_1_hope[sp1_start:sp1_start + len(speakers[2])] += speakers[2]
-        target_2_hope[sp1_start:sp1_start + len(speakers[1])] += speakers[1]
-        target_3_hope[sp1_start:sp1_start + len(speakers[0])] += speakers[0]
-    elif len(speakers[1]) < hope_data_length:
-        target_1_data = speakers[2][0:hope_data_length]
+    if len(speaker_data_group[2]) < hope_data_length:
+        sp1_start = rnd.randint(0, hope_data_length - len(speaker_data_group[2]))
+        target_1_hope[sp1_start:sp1_start + len(speaker_data_group[2])] += speaker_data_group[2]
+        target_2_hope[sp1_start:sp1_start + len(speaker_data_group[1])] += speaker_data_group[1]
+        target_3_hope[sp1_start:sp1_start + len(speaker_data_group[0])] += speaker_data_group[0]
+    elif len(speaker_data_group[1]) < hope_data_length:
+        target_1_data = speaker_data_group[2][0:hope_data_length]
         target_1_hope = target_1_hope + target_1_data
-        sp2_start = rnd.randint(0, hope_data_length - len(speakers[1]))
-        target_2_hope[sp2_start:sp2_start + len(speakers[1])] += speakers[1]
-        target_3_hope[sp2_start:sp2_start + len(speakers[0])] += speakers[0]
-    elif len(speakers[0]) < hope_data_length:
-        target_1_data = speakers[2][0:hope_data_length]
+        sp2_start = rnd.randint(0, hope_data_length - len(speaker_data_group[1]))
+        target_2_hope[sp2_start:sp2_start + len(speaker_data_group[1])] += speaker_data_group[1]
+        target_3_hope[sp2_start:sp2_start + len(speaker_data_group[0])] += speaker_data_group[0]
+    elif len(speaker_data_group[0]) < hope_data_length:
+        target_1_data = speaker_data_group[2][0:hope_data_length]
         target_1_hope = target_1_hope + target_1_data
-        target_2_data = speakers[1][0:hope_data_length]
+        target_2_data = speaker_data_group[1][0:hope_data_length]
         target_2_hope = target_2_hope + target_2_data
-        sp3_start = rnd.randint(0, hope_data_length - len(speakers[0]))
-        target_3_hope[sp3_start:sp3_start + len(speakers[0])] += speakers[0]
+        sp3_start = rnd.randint(0, hope_data_length - len(speaker_data_group[0]))
+        target_3_hope[sp3_start:sp3_start + len(speaker_data_group[0])] += speaker_data_group[0]
     else:
-        target_1_data = speakers[2][0:hope_data_length]
+        target_1_data = speaker_data_group[2][0:hope_data_length]
         target_1_hope = target_1_hope + target_1_data
-        target_2_data = speakers[1][0:hope_data_length]
+        target_2_data = speaker_data_group[1][0:hope_data_length]
         target_2_hope = target_2_hope + target_2_data
-        target_3_data = speakers[0][0:hope_data_length]
+        target_3_data = speaker_data_group[0][0:hope_data_length]
         target_3_hope = target_3_hope + target_3_data
 
     # Now we have 3 target_hope list to emerge to become a mixture wav
@@ -227,15 +245,109 @@ for i in range(num_group):
         source_position_range = Coordinates(
             [1, 1, 1])  # in case there is no room simulations, generate points in a cube
 
-    p0 = generateOneRandomSourcePosition(source_position_range)
+    p1 = generateOneRandomSourcePosition(source_position_range)
+    p2 = copy.deepcopy(p1)
+    p3 = copy.deepcopy(p2)
 
+    while (p1.greatCircleDistanceTo(p2) < minimal_angular_dist_rad or p1.greatCircleDistanceTo(p2)
+           > maximal_angular_dist_rad):
+        p2 = generateOneRandomSourcePosition(source_position_range)
 
+    # Try placing another source, at least minimal_angular_dist_rad away from the first two
+    while (p1.greatCircleDistanceTo(p3) < minimal_angular_dist_rad) or p1.greatCircleDistanceTo(
+            p3) > maximal_angular_dist_rad or \
+            (p2.greatCircleDistanceTo(p3) < minimal_angular_dist_rad or p2.greatCircleDistanceTo(
+                p3) > maximal_angular_dist_rad):
+        p3 = generateOneRandomSourcePosition(source_position_range)
 
+    if render_room:
+        ir_length_samp = ir_length_s * sampling_rate
+        # first source
+        roomSim.sourcePosition = p1
+        srir1 = roomSim.simulate()
+        x_source_1_ambi = np.zeros((hope_data_length + srir1.shape[0] - 1, num_sh_channels))
+        for iShChannel in range(num_sh_channels):
+            x_source_1_ambi[:, iShChannel] = sci.signal.convolve(target_1_hope, srir1[:, iShChannel])
 
+        # second source
+        roomSim.sourcePosition = p2
+        srir2 = roomSim.simulate()
+        x_source_2_ambi = np.zeros((hope_data_length + srir2.shape[0] - 1, num_sh_channels))
+        for iShChannel in range(num_sh_channels):
+            x_source_2_ambi[:, iShChannel] = sci.signal.convolve(target_2_hope, srir2[:, iShChannel])
 
+        # third source
+        roomSim.sourcePosition = p3
+        srir3 = roomSim.simulate()
+        x_source_3_ambi = np.zeros((hope_data_length + srir3.shape[0] - 1, num_sh_channels))
+        for iShChannel in range(num_sh_channels):
+            x_source_3_ambi[:, iShChannel] = sci.signal.convolve(target_3_hope, srir3[:, iShChannel])
 
+        x_source_1_mono = np.hstack((target_1_hope, np.zeros(ir_length_samp - 1)))
+        x_source_2_mono = np.hstack((target_2_hope, np.zeros(ir_length_samp - 1)))
+        x_source_3_mono = np.hstack((target_3_hope, np.zeros(ir_length_samp - 1)))
 
+        x_mix = (x_source_1_ambi + x_source_2_ambi + x_source_3_ambi) / 3
 
+        output_prefix_dir = os.path.join(write_path,
+                                         str(iMix))  # write path: /home/tungyu/Project/datasets/BS_dataset/train
+        Path(output_prefix_dir).mkdir(parents=True, exist_ok=True)
 
+        # write the output wav
+        output_mix_dir = os.path.join(output_prefix_dir, 'mix.wav')
+        wavfile.write(output_mix_dir, sampling_rate, x_mix)
+
+        output_source_1_ambi = os.path.join(output_prefix_dir, 'speaker_1_ambi.wav')
+        wavfile.write(output_source_1_ambi, sampling_rate, x_source_1_ambi)
+
+        output_source_2_ambi = os.path.join(output_prefix_dir, 'speaker_2_ambi.wav')
+        wavfile.write(output_source_2_ambi, sampling_rate, x_source_2_ambi)
+
+        output_source_3_ambi = os.path.join(output_prefix_dir, 'speaker_3_ambi.wav')
+        wavfile.write(output_source_3_ambi, sampling_rate, x_source_3_ambi)
+
+        output_source_1_mono = os.path.join(output_prefix_dir, 'speaker_1_mono.wav')
+        wavfile.write(output_source_1_mono, sampling_rate, x_source_1_mono)
+
+        output_source_2_mono = os.path.join(output_prefix_dir, 'speaker_2_mono.wav')
+        wavfile.write(output_source_2_mono, sampling_rate, x_source_2_mono)
+
+        output_source_3_mono = os.path.join(output_prefix_dir, 'speaker_3_mono.wav')
+        wavfile.write(output_source_3_mono, sampling_rate, x_source_3_mono)
+
+        output_source_srir_1 = os.path.join(output_prefix_dir, 'srir1.wav')
+        srir_int = srir1 * np.iinfo(np.int16).max
+        wavfile.write(output_source_srir_1, sampling_rate, srir_int)
+
+        output_source_srir_2 = os.path.join(output_prefix_dir, 'srir2.wav')
+        srir_int = srir2 * np.iinfo(np.int16).max
+        wavfile.write(output_source_srir_2, sampling_rate, srir_int)
+
+        output_source_srir_3 = os.path.join(output_prefix_dir, 'srir3.wav')
+        srir_int = srir1 * np.iinfo(np.int16).max
+        wavfile.write(output_source_srir_3, sampling_rate, srir_int)
+
+        azi = np.array([p1.azi, p2.azi, p3.azi])
+        zen = np.array([p1.zen, p2.zen, p3.zen])
+
+        azi_normalized = (azi + np.pi) % (2 * np.pi) - np.pi
+        dir_sph = np.vstack((azi_normalized, zen))
+
+        metadata = {}
+
+        metadata[speaker_tracks[0]] = {
+            'panning_angles': dir_sph[:, 2].tolist(),
+            'position_cartesian': p3.cart.tolist(),
+        }
+
+        metadata[speaker_tracks[1]] = {
+            'panning_angles': dir_sph[:, 1].tolist(),
+            'position_cartesian': p2.cart.tolist(),
+        }
+
+        metadata[speaker_tracks[2]] = {
+            'panning_angles': dir_sph[:, 0].tolist(),
+            'position_cartesian': p1.cart.tolist(),
+        }
 
 
