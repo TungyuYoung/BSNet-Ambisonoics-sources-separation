@@ -157,6 +157,7 @@ rnd.shuffle(file_address_list)  # shuffle the list
 num_group = int(len(file_address_list) / 3)
 
 for i in range(num_group):
+
     speaker_1 = file_address_list[i * 3]
     speaker_2 = file_address_list[i * 3 + 1]
     speaker_3 = file_address_list[i * 3 + 2]
@@ -165,22 +166,76 @@ for i in range(num_group):
     _, speaker_2_data = wavfile.read(speaker_2)
     _, speaker_3_data = wavfile.read(speaker_3)
 
+    speakers = [speaker_1_data.tolist(), speaker_2_data.tolist(), speaker_3_data.tolist()]
+
+    speakers = sorted(speakers, key=len)
+
     hope_data_length = length_s * sampling_rate
 
     speaker_1_length = len(speaker_1_data)
     speaker_2_length = len(speaker_2_data)
     speaker_3_length = len(speaker_3_data)
 
-    speaker_1_hope = np.zeros(hope_data_length)
-    speaker_2_hope = np.zeros(hope_data_length)
-    speaker_3_hope = np.zeros(hope_data_length)
+    target_1_hope = np.zeros(hope_data_length)
+    target_2_hope = np.zeros(hope_data_length)
+    target_3_hope = np.zeros(hope_data_length)
 
-    longest_length = max(speaker_1_length, speaker_2_length, speaker_3_length)
+    target_1_data = None
+    target_2_data = None
+    target_3_data = None
 
-    if len(speaker_1_data) < hope_data_length:
-        sp1_start = rnd.randint(0, hope_data_length - len(speaker_1_data))
-        speaker_1_hope[sp1_start:sp1_start + len(speaker_1_data)] += speaker_1_data
+    if len(speakers[2]) < hope_data_length:
+        sp1_start = rnd.randint(0, hope_data_length - len(speakers[2]))
+        target_1_hope[sp1_start:sp1_start + len(speakers[2])] += speakers[2]
+        target_2_hope[sp1_start:sp1_start + len(speakers[1])] += speakers[1]
+        target_3_hope[sp1_start:sp1_start + len(speakers[0])] += speakers[0]
+    elif len(speakers[1]) < hope_data_length:
+        target_1_data = speakers[2][0:hope_data_length]
+        target_1_hope = target_1_hope + target_1_data
+        sp2_start = rnd.randint(0, hope_data_length - len(speakers[1]))
+        target_2_hope[sp2_start:sp2_start + len(speakers[1])] += speakers[1]
+        target_3_hope[sp2_start:sp2_start + len(speakers[0])] += speakers[0]
+    elif len(speakers[0]) < hope_data_length:
+        target_1_data = speakers[2][0:hope_data_length]
+        target_1_hope = target_1_hope + target_1_data
+        target_2_data = speakers[1][0:hope_data_length]
+        target_2_hope = target_2_hope + target_2_data
+        sp3_start = rnd.randint(0, hope_data_length - len(speakers[0]))
+        target_3_hope[sp3_start:sp3_start + len(speakers[0])] += speakers[0]
     else:
-        speaker_1_data = speaker_1_data[0:hope_data_length]
-        speaker_1_hope = speaker_1_hope + speaker_1_data
+        target_1_data = speakers[2][0:hope_data_length]
+        target_1_hope = target_1_hope + target_1_data
+        target_2_data = speakers[1][0:hope_data_length]
+        target_2_hope = target_2_hope + target_2_data
+        target_3_data = speakers[0][0:hope_data_length]
+        target_3_hope = target_3_hope + target_3_data
+
+    # Now we have 3 target_hope list to emerge to become a mixture wav
+
+    # rendering room
+    if render_room:
+        # modify room size and reverberation time on each iteration
+        room_size = Coordinates(default_room_size.cart + room_size_range * (np.random.rand(3) - 0.5) * 2)
+        roomSim.roomSize = room_size
+        # get the maximal possible source position range
+        distance_from_walls_m = 0.2
+        source_position_range = Coordinates(room_size.cart / 2.0 - distance_from_walls_m)
+
+        roomSim.rt = default_rt + rt_range * (np.random.rand(8) - 0.5) * 2
+
+    else:
+        source_position_range = Coordinates(
+            [1, 1, 1])  # in case there is no room simulations, generate points in a cube
+
+    p0 = generateOneRandomSourcePosition(source_position_range)
+
+
+
+
+
+
+
+
+
+
 
