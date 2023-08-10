@@ -191,7 +191,6 @@ for i in range(num_group):
         ddd = speaker_data[track]
         speaker_data_group.append(ddd)
 
-
     hope_data_length = length_s * sampling_rate
 
     target_1_hope = np.zeros(hope_data_length)
@@ -350,4 +349,19 @@ for i in range(num_group):
             'position_cartesian': p1.cart.tolist(),
         }
 
+        metadata_file = str(Path(output_prefix_dir) / "metadata.json")
+        with open(metadata_file, "w") as f:
+            json.dump(metadata, f, indent=4)
 
+        room_metadata = {}
+        room_metadata['room'] = {
+            'room_size': roomSim.roomSize.cart.tolist(),
+            'rt': roomSim.rt.tolist(),
+        }
+        room_metadata_file = str(Path(output_prefix_dir) / "room_metadata.json")
+        with open(room_metadata_file, "w") as f:
+            json.dump(room_metadata, f, indent=4)
+
+    iMix = iMix + 1
+    print('iMix: ' + str(iMix))
+    print('\n')
