@@ -201,7 +201,7 @@ for i in range(num_group):
     target_2_data = None
     target_3_data = None
 
-    if len(speaker_data_group[2]) < hope_data_length:
+    if len(speaker_data_group[2]) < hope_data_length:  # 1 is the longest
         sp1_start = rnd.randint(0, hope_data_length - len(speaker_data_group[2]))
         target_1_hope[sp1_start:sp1_start + len(speaker_data_group[2])] += speaker_data_group[2]
         target_2_hope[sp1_start:sp1_start + len(speaker_data_group[1])] += speaker_data_group[1]
@@ -287,6 +287,16 @@ for i in range(num_group):
         x_source_3_mono = np.hstack((target_3_hope, np.zeros(ir_length_samp - 1)))
 
         x_mix = (x_source_1_ambi + x_source_2_ambi + x_source_3_ambi) / 3
+        x_mix_max_jk = np.max(np.abs(x_mix))
+        x_mix = x_mix / x_mix_max_jk
+
+        x_source_1_mono = x_source_1_mono / np.max(np.abs(x_source_1_mono))
+        x_source_2_mono = x_source_2_mono / np.max(np.abs(x_source_2_mono))
+        x_source_3_mono = x_source_3_mono / np.max(np.abs(x_source_3_mono))
+
+        x_source_1_ambi = x_source_1_ambi / np.max(np.abs(x_source_1_ambi))
+        x_source_2_ambi = x_source_2_ambi / np.max(np.abs(x_source_2_ambi))
+        x_source_3_ambi = x_source_3_ambi / np.max(np.abs(x_source_3_ambi))
 
         output_prefix_dir = os.path.join(write_path,
                                          str(iMix))  # write path: /home/tungyu/Project/datasets/BS_dataset/train
@@ -296,34 +306,34 @@ for i in range(num_group):
         output_mix_dir = os.path.join(output_prefix_dir, 'mix.wav')
         wavfile.write(output_mix_dir, sampling_rate, x_mix)
 
-        output_source_1_ambi = os.path.join(output_prefix_dir, 'speaker_1_ambi.wav')
+        output_source_1_ambi = os.path.join(output_prefix_dir, 'speaker_3_ambi.wav')
         wavfile.write(output_source_1_ambi, sampling_rate, x_source_1_ambi)
 
         output_source_2_ambi = os.path.join(output_prefix_dir, 'speaker_2_ambi.wav')
         wavfile.write(output_source_2_ambi, sampling_rate, x_source_2_ambi)
 
-        output_source_3_ambi = os.path.join(output_prefix_dir, 'speaker_3_ambi.wav')
+        output_source_3_ambi = os.path.join(output_prefix_dir, 'speaker_1_ambi.wav')
         wavfile.write(output_source_3_ambi, sampling_rate, x_source_3_ambi)
 
-        output_source_1_mono = os.path.join(output_prefix_dir, 'speaker_1_mono.wav')
+        output_source_1_mono = os.path.join(output_prefix_dir, 'speaker_3_mono.wav')
         wavfile.write(output_source_1_mono, sampling_rate, x_source_1_mono)
 
         output_source_2_mono = os.path.join(output_prefix_dir, 'speaker_2_mono.wav')
         wavfile.write(output_source_2_mono, sampling_rate, x_source_2_mono)
 
-        output_source_3_mono = os.path.join(output_prefix_dir, 'speaker_3_mono.wav')
+        output_source_3_mono = os.path.join(output_prefix_dir, 'speaker_1_mono.wav')
         wavfile.write(output_source_3_mono, sampling_rate, x_source_3_mono)
 
-        output_source_srir_1 = os.path.join(output_prefix_dir, 'srir1.wav')
-        srir_int = srir1 * np.iinfo(np.int16).max
+        output_source_srir_1 = os.path.join(output_prefix_dir, 'srir3.wav')
+        srir_int = srir1
         wavfile.write(output_source_srir_1, sampling_rate, srir_int)
 
         output_source_srir_2 = os.path.join(output_prefix_dir, 'srir2.wav')
-        srir_int = srir2 * np.iinfo(np.int16).max
+        srir_int = srir2
         wavfile.write(output_source_srir_2, sampling_rate, srir_int)
 
-        output_source_srir_3 = os.path.join(output_prefix_dir, 'srir3.wav')
-        srir_int = srir1 * np.iinfo(np.int16).max
+        output_source_srir_3 = os.path.join(output_prefix_dir, 'srir1.wav')
+        srir_int = srir3
         wavfile.write(output_source_srir_3, sampling_rate, srir_int)
 
         azi = np.array([p1.azi, p2.azi, p3.azi])
