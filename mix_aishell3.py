@@ -11,7 +11,7 @@ python mix_aishell3.py train 15000 0 5 /home/tungyu/Project/datasets/aishell3/BS
 import numpy as np
 import scipy as sci
 import numpy.random as rnd
-import scipy.io.wavfile
+import scipy.io.wavfile as wavfile
 import musdb
 import argparse
 import copy
@@ -100,7 +100,6 @@ ir_length_s = 1
 seed_value = 13
 rnd.seed(seed_value)
 
-
 if dataset == 'aishell3':
     sampling_rate = 44100
     num_samples = length_s * sampling_rate
@@ -154,6 +153,34 @@ for root, subdirectories, files in os.walk(read_path):
             file_address = os.path.join(curr_path, filename)
             file_address_list.append(file_address)
 
-
 rnd.shuffle(file_address_list)  # shuffle the list
+num_group = int(len(file_address_list) / 3)
+
+for i in range(num_group):
+    speaker_1 = file_address_list[i * 3]
+    speaker_2 = file_address_list[i * 3 + 1]
+    speaker_3 = file_address_list[i * 3 + 2]
+
+    _, speaker_1_data = wavfile.read(speaker_1)
+    _, speaker_2_data = wavfile.read(speaker_2)
+    _, speaker_3_data = wavfile.read(speaker_3)
+
+    hope_data_length = length_s * sampling_rate
+
+    speaker_1_length = len(speaker_1_data)
+    speaker_2_length = len(speaker_2_data)
+    speaker_3_length = len(speaker_3_data)
+
+    speaker_1_hope = np.zeros(hope_data_length)
+    speaker_2_hope = np.zeros(hope_data_length)
+    speaker_3_hope = np.zeros(hope_data_length)
+
+    longest_length = max(speaker_1_length, speaker_2_length, speaker_3_length)
+
+    if len(speaker_1_data) < hope_data_length:
+        sp1_start = rnd.randint(0, hope_data_length - len(speaker_1_data))
+        speaker_1_hope[sp1_start:sp1_start + len(speaker_1_data)] += speaker_1_data
+    else:
+        speaker_1_data = speaker_1_data[0:hope_data_length]
+        speaker_1_hope = speaker_1_hope + speaker_1_data
 
