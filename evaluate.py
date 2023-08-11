@@ -1,4 +1,3 @@
-import argparse
 import json
 import torch
 import os
@@ -6,9 +5,10 @@ import numpy as np
 import scipy.io.wavfile as wavfile
 import statistics as stat
 from utils import si_sdr, beamformer_max_di, \
-    beamformer_max_re, beamformer_max_sdr, zen_to_ele, azi_to_0_2pi_range, si_sdr_torch_edition
+    beamformer_max_re, beamformer_max_sdr, zen_to_ele, azi_to_0_2pi_range
 from network import BSNet
 from pathlib import Path
+import time
 
 
 def flatten(t):
@@ -82,6 +82,7 @@ def main(evaluate_dir, model_checkpoint, result_dir):
                                'beamformer_max_re': {'vocals': None, 'drums': None, 'bass': None, 'all': None},
                                'beamformer_max_sdr': {'vocals': None, 'drums': None, 'bass': None, 'all': None},
                                'omnimix': {'vocals': None, 'drums': None, 'bass': None, 'all': None}}}
+    cmt = 0
 
     for idx in range(0, len(all_dirs)):
         print(idx)
@@ -92,17 +93,33 @@ def main(evaluate_dir, model_checkpoint, result_dir):
         for [azi_angle, zen_angle], target_waveform, key in zip(source_positions, source_audios, source_name):
             azi_angle_beamformer = azi_to_0_2pi_range(azi_angle)
             ele_angle_beamformer = zen_to_ele(zen_angle)
-            audio_bf_max_re = beamformer_max_re(mixed_data, np.array((azi_angle_beamformer, ele_angle_beamformer)))
-            wavfile.write(str(curr_dir) + '/' + str(key) + '_bf_max_re.wav', 44100, audio_bf_max_re)
 
-            # nn output here!
+            audio_bf_max_di = beamformer_max_di(mixed_data, np.array((azi_angle_beamformer, ele_angle_beamformer)))
+            wavfile.write(str(curr_dir) + '/' + str(key) + '_bf_max_di.wav', 44100, audio_bf_max_di)
+
+            audio_bf_max_sdr, singular_matrix = beamformer_max_sdr(mixed_data, target_waveform)
+
+            if singular_matrix:
+                cmt += 1
+                print("Total singular matrices = " + str(cmt))
+                print('\n')
+            else:
+                wavfile.write(str(curr_dir) + '/' + str(key) + '_bf_max_sdr.wav', 44100, audio_bf_max_sdr)
 
             nn_mixed_data = mixed_data[:, 0:4]
             nn_mixed_data = torch.tensor(nn_mixed_data.T)
+
+            audio_bf_max_re = beamformer_max_re(mixed_data, np.array((azi_angle_beamformer, ele_angle_beamformer)))
+
+            # wavfile.write(str(curr_dir) + '/' + str(key) + '_bf_max_re.wav', 44100, audio_bf_max_re)
+            # nn output here!
+
             nn_bf_data = torch.tensor(audio_bf_max_re)
             nn_predicted_data = forward_pass(model, nn_mixed_data, nn_bf_data, device=device)
+
             nn_predicted_audio = nn_predicted_data.detach().cpu().numpy()
-            wavfile.write(str(curr_dir) + '/' + str(key) + '_predicted.wav', 44100, nn_predicted_audio)
+
+            # wavfile.write(str(curr_dir) + '/' + str(key) + '_predicted.wav', 44100, nn_predicted_audio)
 
             is_all_zero = np.all((target_waveform == 0))
             if not is_all_zero:
@@ -114,6 +131,8 @@ def main(evaluate_dir, model_checkpoint, result_dir):
                 si_sdr_nn[key].append(si_sdr_pt)
                 si_sdr_at = si_sdr(nn_bf_data, target_waveform)
                 si_sdr_beamformer_max_re[key].append(si_sdr_at)
+                si_sdr_bt = si_sdr(audio_bf_max_di.flatten(), target_waveform)
+                si_sdr_beamformer_max_di[key].append(si_sdr_bt)
 
     json_path = os.path.join(result_dir, 'si_sdr_nn.json')
     with open(json_path, 'w') as fp:
@@ -122,6 +141,10 @@ def main(evaluate_dir, model_checkpoint, result_dir):
     json_path = os.path.join(result_dir, 'si_sdr_beamformer_max_re.json')
     with open(json_path, 'w') as fp:
         json.dump(si_sdr_beamformer_max_re, fp)
+
+    json_path = os.path.join(result_dir, 'si_sdr_beamformer_max_di.json')
+    with open(json_path, 'w') as fp:
+        json.dump(si_sdr_beamformer_max_di, fp)
 
     for key in ['vocals', 'drums', 'bass']:
         si_sdr_stats['median']['nn'][key] = stat.median(si_sdr_nn[key])
@@ -147,6 +170,6 @@ def main(evaluate_dir, model_checkpoint, result_dir):
 
 
 if __name__ == '__main__':
-    main(evaluate_dir='/home/tungyu/Project/musdb18/different_angle/15',
-         model_checkpoint='/home/tungyu/Project/STFTNet/best.pt',
-         result_dir='/home/tungyu/Project/musdb18/different_angle/15')
+    main(evaluate_dir='/home/tungyu/Project/musdb18/ambi_test',
+         model_checkpoint='/home/tungyu/Project/STFTNet/pt_file/best.pt',
+         result_dir='/home/tungyu/Project/musdb18/ambi_test')

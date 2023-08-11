@@ -287,3 +287,4 @@ def drawGrid():
 
         plt.plot(x, y, '--', color='grey', alpha=0.7)
     plt.axis('off')
+
